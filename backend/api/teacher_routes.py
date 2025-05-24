@@ -9,7 +9,9 @@ from typing import Dict, Any, List
 
 from ..services import get_db
 from ..services.client_service import client_service
+from ..services.rubric_service import rubric_service
 from ..models.client_profile import ClientProfile, ClientProfileCreate, ClientProfileUpdate
+from ..models.rubric import EvaluationRubric, EvaluationRubricCreate, EvaluationRubricUpdate
 
 # Create router instance
 router = APIRouter(
@@ -297,3 +299,24 @@ async def delete_client(
     
     # Return 204 No Content on successful deletion
     return None
+
+
+# ==================== RUBRIC ENDPOINTS ====================
+
+# GET /rubrics - List all rubrics for a teacher
+@router.get("/rubrics", response_model=List[EvaluationRubric])
+async def list_rubrics(
+    db: Session = Depends(get_db),
+    teacher_id: str = Depends(get_current_teacher)
+):
+    """
+    Get all evaluation rubrics for the current teacher.
+    
+    Returns:
+        List of evaluation rubrics belonging to the teacher
+    """
+    
+    # Get all rubrics for this teacher
+    rubrics = rubric_service.get_teacher_rubrics(db, teacher_id)
+    
+    return rubrics

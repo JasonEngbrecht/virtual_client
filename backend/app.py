@@ -76,9 +76,10 @@ async def health_check():
 
 
 # TODO: Import and include routers
-# from .api import teacher_routes, student_routes
-# app.include_router(teacher_routes.router, prefix="/api/teacher", tags=["teacher"])
-# app.include_router(student_routes.router, prefix="/api/student", tags=["student"])
+from .api import teacher_routes
+
+# Include routers
+app.include_router(teacher_routes.router, prefix="/api")
 
 
 if __name__ == "__main__":

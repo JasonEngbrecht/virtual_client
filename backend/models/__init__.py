@@ -1,86 +1,95 @@
 """
-Models package initialization
-Exports all data models for easy importing
+Models module
+Contains all SQLAlchemy ORM models and Pydantic schemas
 """
 
 from .client_profile import (
     ClientProfileDB,
-    ClientProfile,
+    ClientProfileBase,
     ClientProfileCreate,
     ClientProfileUpdate,
+    ClientProfile,
     PREDEFINED_ISSUES,
     PERSONALITY_TRAITS,
     COMMUNICATION_STYLES
 )
 
+from .evaluation import (
+    EvaluationDB,
+    CriterionScore,
+    EvaluationBase,
+    EvaluationCreate,
+    Evaluation,
+    EvaluationSummary,
+    ProgressReport,
+    EvaluationRequest
+)
+
 from .rubric import (
     EvaluationRubricDB,
-    EvaluationRubric,
+    ScoringLevel,
+    RubricCriterion,
+    EvaluationRubricBase,
     EvaluationRubricCreate,
     EvaluationRubricUpdate,
-    RubricCriterion,
-    ScoringLevel,
+    EvaluationRubric,
     SAMPLE_RUBRIC_CRITERIA
 )
 
 from .session import (
     SessionDB,
-    Session,
+    Message,
+    SessionBase,
     SessionCreate,
     SessionUpdate,
+    Session,
     SessionSummary,
-    Message,
     SendMessageRequest,
     SendMessageResponse,
     EndSessionRequest
 )
 
-from .evaluation import (
-    EvaluationDB,
-    Evaluation,
-    EvaluationCreate,
-    EvaluationSummary,
-    CriterionScore,
-    ProgressReport,
-    EvaluationRequest
-)
-
+# Export all models for easy access
 __all__ = [
     # Client Profile
     'ClientProfileDB',
-    'ClientProfile',
+    'ClientProfileBase',
     'ClientProfileCreate',
     'ClientProfileUpdate',
+    'ClientProfile',
     'PREDEFINED_ISSUES',
     'PERSONALITY_TRAITS',
     'COMMUNICATION_STYLES',
     
+    # Evaluation
+    'EvaluationDB',
+    'CriterionScore',
+    'EvaluationBase',
+    'EvaluationCreate',
+    'Evaluation',
+    'EvaluationSummary',
+    'ProgressReport',
+    'EvaluationRequest',
+    
     # Rubric
     'EvaluationRubricDB',
-    'EvaluationRubric',
+    'ScoringLevel',
+    'RubricCriterion',
+    'EvaluationRubricBase',
     'EvaluationRubricCreate',
     'EvaluationRubricUpdate',
-    'RubricCriterion',
-    'ScoringLevel',
+    'EvaluationRubric',
     'SAMPLE_RUBRIC_CRITERIA',
     
     # Session
     'SessionDB',
-    'Session',
+    'Message',
+    'SessionBase',
     'SessionCreate',
     'SessionUpdate',
+    'Session',
     'SessionSummary',
-    'Message',
     'SendMessageRequest',
     'SendMessageResponse',
     'EndSessionRequest',
-    
-    # Evaluation
-    'EvaluationDB',
-    'Evaluation',
-    'EvaluationCreate',
-    'EvaluationSummary',
-    'CriterionScore',
-    'ProgressReport',
-    'EvaluationRequest'
 ]

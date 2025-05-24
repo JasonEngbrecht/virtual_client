@@ -4,14 +4,13 @@ Represents evaluation criteria and scoring for student performance assessment
 """
 
 from sqlalchemy import Column, String, Text, JSON, DateTime, Float
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
 from pydantic import BaseModel, Field, validator
 from typing import List, Dict, Optional
 from datetime import datetime
 import uuid
 
-Base = declarative_base()
+from ..services.database import Base
 
 
 # SQLAlchemy ORM Model

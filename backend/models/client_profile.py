@@ -5,14 +5,13 @@ Represents a virtual client with demographics, issues, and personality traits
 
 from sqlalchemy import Column, String, Integer, Text, JSON, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime
 import uuid
 
-Base = declarative_base()
+from ..services.database import Base
 
 
 # SQLAlchemy ORM Model

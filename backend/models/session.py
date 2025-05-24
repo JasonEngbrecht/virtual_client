@@ -4,14 +4,13 @@ Represents an interaction session between a student and virtual client
 """
 
 from sqlalchemy import Column, String, Text, JSON, DateTime, Boolean
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
 from pydantic import BaseModel, Field
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Dict
 from datetime import datetime
 import uuid
 
-Base = declarative_base()
+from ..services.database import Base
 
 
 # SQLAlchemy ORM Model

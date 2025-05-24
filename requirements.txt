@@ -1,0 +1,32 @@
+# Core Framework
+fastapi==0.115.12
+uvicorn==0.34.2
+python-multipart==0.0.20
+
+# Database
+SQLAlchemy==2.0.41
+alembic==1.16.1
+
+# LLM Integration
+openai
+anthropic==0.52.0
+python-dotenv==1.1.0
+
+# Data Validation
+pydantic==2.11.5
+pydantic-settings==2.9.1
+
+# Frontend (for Streamlit option)
+streamlit==1.45.1
+
+# Utilities
+httpx==0.28.1
+python-jose==3.4.0
+passlib==1.7.4
+
+# Development tools
+pytest==8.2.2
+pytest-asyncio==0.26.0
+pytest-cov==6.1.1
+black==25.1.0
+isort==6.0.1

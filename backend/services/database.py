@@ -301,5 +301,13 @@ class BaseCRUD(Generic[ModelType], DatabaseService):
 # Global database service instance
 db_service = DatabaseService()
 
-# Convenience function for getting database sessions
-get_db = db_service.get_db
+# Dependency function for FastAPI
+def get_db():
+    """
+    Dependency function for FastAPI to get database sessions
+    
+    Yields:
+        Session: SQLAlchemy database session
+    """
+    with db_service.get_db() as db:
+        yield db

@@ -1,20 +1,25 @@
 # Virtual Client - Social Work Training App
 
-**Status:** In Development | **Phase:** 1.2 - ClientProfile CRUD | **Progress:** Parts 1-3 Complete (Service Layer & API Router Ready)
+**Status:** In Development | **Phase:** 1.2 - ClientProfile CRUD | **Progress:** Parts 1-4 Complete (All CRUD Endpoints Implemented)
 
 This project will create a virtual client that social work (and other areas) can interface with to practice working with clients.
 
 ## 🌟 Latest Achievement
-**Phase 1.2 Parts 1-3 Complete!** - ClientProfile service layer and API router are ready:
+**Phase 1.2 Parts 1-4 Complete!** - Full CRUD API for ClientProfile is operational:
 - ✅ ClientService class with teacher-filtered methods
 - ✅ Permission checks (can_update, can_delete)
-- ✅ API router integrated with test endpoints
-- ✅ Database dependency injection working
+- ✅ All 5 CRUD endpoints implemented and tested:
+  - GET /api/teacher/clients (list)
+  - POST /api/teacher/clients (create)
+  - GET /api/teacher/clients/{id} (retrieve)
+  - PUT /api/teacher/clients/{id} (update)
+  - DELETE /api/teacher/clients/{id} (delete)
 - ✅ Interactive API documentation at /docs
+- ✅ Comprehensive test scripts for all endpoints
 
 **Previous:** Phase 1.1 Complete - Database foundation with 15 passing tests
 
-**Next:** Phase 1.2 Part 4 - Implementing CRUD endpoints one by one
+**Next:** Phase 1.2 Part 5 - Authentication placeholder (get_current_teacher dependency)
 
 ## Project Overview
 
@@ -223,13 +228,13 @@ virtual_client/
   - [x] Update app.py to include router
   - [x] Verify endpoint accessibility
   
-  **Part 4: Add One Endpoint at a Time**
-  - [ ] GET /clients (list) with hardcoded teacher_id
-  - [ ] POST /clients (create)
-  - [ ] GET /clients/{id} (retrieve)
-  - [ ] PUT /clients/{id} (update)
-  - [ ] DELETE /clients/{id} (delete)
-  - [ ] Test each endpoint with curl/Postman before moving to next
+  **Part 4: Add One Endpoint at a Time** ✅
+  - [x] GET /clients (list) with hardcoded teacher_id
+  - [x] POST /clients (create)
+  - [x] GET /clients/{id} (retrieve)
+  - [x] PUT /clients/{id} (update)
+  - [x] DELETE /clients/{id} (delete)
+  - [x] Test each endpoint with curl/Postman before moving to next
   
   **Part 5: Add Authentication Placeholder**
   - [ ] Create get_current_teacher() dependency
@@ -332,10 +337,10 @@ API Route (FastAPI) → Service Layer → Database Layer (SQLAlchemy) → SQLite
 ### Time Estimates
 - Phase 1.1 (Database Foundation): 2-3 hours ✅ COMPLETED
 - Phase 1.2 (ClientProfile CRUD): 3-4 hours
-  - Part 1 (Basic Service): 30 minutes
-  - Part 2 (Teacher Methods): 1 hour
-  - Part 3 (Minimal Router): 30 minutes
-  - Part 4 (CRUD Endpoints): 1.5 hours
+  - Part 1 (Basic Service): 30 minutes ✅
+  - Part 2 (Teacher Methods): 1 hour ✅
+  - Part 3 (Minimal Router): 30 minutes ✅
+  - Part 4 (CRUD Endpoints): 1.5 hours ✅
   - Part 5 (Auth Placeholder): 30 minutes
   - Part 6 (Error Handling): 30 minutes
 - Phase 1.3 (EvaluationRubric CRUD): 2-3 hours
@@ -396,9 +401,9 @@ Two-tier evaluation system:
 ## Current Project Status
 
 **Last Updated:** May 24, 2025
-**Current Focus:** Phase 1.2 Part 4 - Ready to implement CRUD endpoints
+**Current Focus:** Phase 1.2 Part 5 - Ready to add authentication placeholder
 
-### ✅ Phase 1.2 Progress (Parts 1-3 Complete)
+### ✅ Phase 1.2 Progress (Parts 1-4 Complete)
 
 #### Part 1: Basic Client Service ✅
 - Created `backend/services/client_service.py`
@@ -418,6 +423,15 @@ Two-tier evaluation system:
 - Database dependency injection working
 - Fixed type annotation issue (Dict[str, Any])
 - API documentation available at `/docs`
+
+#### Part 4: CRUD Endpoints Implementation ✅
+- GET /api/teacher/clients - List all clients for teacher-123
+- POST /api/teacher/clients - Create new client
+- GET /api/teacher/clients/{id} - Get specific client
+- PUT /api/teacher/clients/{id} - Update client (partial updates supported)
+- DELETE /api/teacher/clients/{id} - Delete client
+- All endpoints include proper permission checks and error handling
+- Created comprehensive test scripts for all endpoints
 
 ### ✅ Completed
 - Project directory structure created
@@ -441,27 +455,25 @@ Two-tier evaluation system:
   - Test runner scripts for easy execution
 
 ### 🚧 Ready to Start
-- **Phase 1.2 Part 4**: Add CRUD Endpoints One at a Time
-  - Start with GET /clients (list with hardcoded teacher_id)
-  - Then POST /clients (create)
-  - Then GET /clients/{id} (retrieve)
-  - Then PUT /clients/{id} (update)
-  - Then DELETE /clients/{id} (delete)
-  - Test each endpoint before moving to next
+- **Phase 1.2 Part 5**: Add Authentication Placeholder
+  - Create get_current_teacher() dependency function
+  - Replace hardcoded teacher_id with dependency injection
+  - Add mock authentication for testing
+  - Update all endpoints to use the new dependency
 
 ### 📝 Key Documentation Files Created
 - `PHASE_1_2_PART1_COMPLETE.md` - Part 1 implementation details
 - `PHASE_1_2_PART2_COMPLETE.md` - Part 2 implementation details
 - `PHASE_1_2_PART3_COMPLETE.md` - Part 3 implementation details
+- `PHASE_1_2_PART4_COMPLETE.md` - Part 4 CRUD endpoints implementation
 - `PHASE_1_2_PART3_TESTING.md` - Manual testing guide for API
 - `PHASE_1_2_CHECKLIST.md` - Original full phase checklist
 
 ### 📋 Next Steps
-1. **Continue Phase 1.2 Part 4**: Implement GET /clients endpoint
-2. Add remaining CRUD endpoints one by one  
-3. Complete Parts 5 & 6 (Authentication placeholder and error handling)
-4. Move to Phase 1.3: EvaluationRubric CRUD
-5. Continue with remaining phases per roadmap
+1. **Continue Phase 1.2 Part 5**: Add authentication placeholder
+2. Complete Part 6 (Error handling and edge cases)
+3. Move to Phase 1.3: EvaluationRubric CRUD
+4. Continue with remaining phases per roadmap
 
 ### 🚀 Quick Start for Next Session
 
@@ -480,11 +492,17 @@ python test_quick.py
 
 # Client service tests only  
 python -m pytest tests/unit/test_client_service.py -v
+
+# Test all CRUD endpoints
+python test_all_crud.py
 ```
 
 **Check API Documentation:**
 - Visit http://localhost:8000/docs when server is running
-- Current endpoints: `/api/teacher/test` and `/api/teacher/test-db`
+- Current endpoints:
+  - `/api/teacher/test` and `/api/teacher/test-db` (test endpoints)
+  - `/api/teacher/clients` (GET, POST)
+  - `/api/teacher/clients/{id}` (GET, PUT, DELETE)
 
 ## Development Environment Setup
 

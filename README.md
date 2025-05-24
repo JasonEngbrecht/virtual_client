@@ -1,11 +1,11 @@
 # Virtual Client - Social Work Training App
 
-**Status:** In Development | **Phase:** 1.2 - ClientProfile CRUD | **Progress:** Parts 1-4 Complete (All CRUD Endpoints Implemented)
+**Status:** In Development | **Phase:** 1.2 - ClientProfile CRUD | **Progress:** Parts 1-5 Complete (Authentication Placeholder Added)
 
 This project will create a virtual client that social work (and other areas) can interface with to practice working with clients.
 
 ## 🌟 Latest Achievement
-**Phase 1.2 Parts 1-4 Complete!** - Full CRUD API for ClientProfile is operational:
+**Phase 1.2 Parts 1-5 Complete!** - Full CRUD API with authentication dependency:
 - ✅ ClientService class with teacher-filtered methods
 - ✅ Permission checks (can_update, can_delete)
 - ✅ All 5 CRUD endpoints implemented and tested:
@@ -14,12 +14,15 @@ This project will create a virtual client that social work (and other areas) can
   - GET /api/teacher/clients/{id} (retrieve)
   - PUT /api/teacher/clients/{id} (update)
   - DELETE /api/teacher/clients/{id} (delete)
+- ✅ Authentication dependency (get_current_teacher) implemented
+- ✅ All endpoints now use dependency injection for teacher_id
+- ✅ Mock authentication returns "teacher-123" for testing
 - ✅ Interactive API documentation at /docs
 - ✅ Comprehensive test scripts for all endpoints
 
-**Previous:** Phase 1.1 Complete - Database foundation with 15 passing tests
+**Previous:** Phase 1.2 Part 4 - All CRUD endpoints implemented
 
-**Next:** Phase 1.2 Part 5 - Authentication placeholder (get_current_teacher dependency)
+**Next:** Phase 1.2 Part 6 - Error handling improvements
 
 ## Project Overview
 
@@ -236,10 +239,10 @@ virtual_client/
   - [x] DELETE /clients/{id} (delete)
   - [x] Test each endpoint with curl/Postman before moving to next
   
-  **Part 5: Add Authentication Placeholder**
-  - [ ] Create get_current_teacher() dependency
-  - [ ] Replace hardcoded teacher_id with dependency
-  - [ ] Verify endpoints work with mock auth
+  **Part 5: Add Authentication Placeholder** ✅
+  - [x] Create get_current_teacher() dependency
+  - [x] Replace hardcoded teacher_id with dependency
+  - [x] Verify endpoints work with mock auth
   
   **Part 6: Error Handling**
   - [ ] Add 404 (not found) handling
@@ -341,7 +344,7 @@ API Route (FastAPI) → Service Layer → Database Layer (SQLAlchemy) → SQLite
   - Part 2 (Teacher Methods): 1 hour ✅
   - Part 3 (Minimal Router): 30 minutes ✅
   - Part 4 (CRUD Endpoints): 1.5 hours ✅
-  - Part 5 (Auth Placeholder): 30 minutes
+  - Part 5 (Auth Placeholder): 30 minutes ✅
   - Part 6 (Error Handling): 30 minutes
 - Phase 1.3 (EvaluationRubric CRUD): 2-3 hours
 - Phase 1.4 (Session Management): 4-5 hours
@@ -401,9 +404,9 @@ Two-tier evaluation system:
 ## Current Project Status
 
 **Last Updated:** May 24, 2025
-**Current Focus:** Phase 1.2 Part 5 - Ready to add authentication placeholder
+**Current Focus:** Phase 1.2 Part 6 - Ready to improve error handling
 
-### ✅ Phase 1.2 Progress (Parts 1-4 Complete)
+### ✅ Phase 1.2 Progress (Parts 1-5 Complete)
 
 #### Part 1: Basic Client Service ✅
 - Created `backend/services/client_service.py`
@@ -425,13 +428,21 @@ Two-tier evaluation system:
 - API documentation available at `/docs`
 
 #### Part 4: CRUD Endpoints Implementation ✅
-- GET /api/teacher/clients - List all clients for teacher-123
+- GET /api/teacher/clients - List all clients for authenticated teacher
 - POST /api/teacher/clients - Create new client
 - GET /api/teacher/clients/{id} - Get specific client
 - PUT /api/teacher/clients/{id} - Update client (partial updates supported)
 - DELETE /api/teacher/clients/{id} - Delete client
 - All endpoints include proper permission checks and error handling
 - Created comprehensive test scripts for all endpoints
+
+#### Part 5: Authentication Placeholder ✅
+- Created get_current_teacher() dependency function
+- Returns mock teacher ID "teacher-123" for testing
+- All endpoints updated to use dependency injection
+- Removed hardcoded teacher_id values
+- Ready for real authentication implementation
+- Created test script: scripts/test_auth_dependency.py
 
 ### ✅ Completed
 - Project directory structure created
@@ -455,11 +466,11 @@ Two-tier evaluation system:
   - Test runner scripts for easy execution
 
 ### 🚧 Ready to Start
-- **Phase 1.2 Part 5**: Add Authentication Placeholder
-  - Create get_current_teacher() dependency function
-  - Replace hardcoded teacher_id with dependency injection
-  - Add mock authentication for testing
-  - Update all endpoints to use the new dependency
+- **Phase 1.2 Part 6**: Error Handling Improvements
+  - Add proper 404 (not found) handling with clear messages
+  - Add 403 (permission denied) handling for unauthorized access
+  - Add 400 (validation error) handling with detailed errors
+  - Test each error case thoroughly
 
 ### 📝 Key Documentation Files Created
 - `PHASE_1_2_PART1_COMPLETE.md` - Part 1 implementation details
@@ -467,11 +478,12 @@ Two-tier evaluation system:
 - `PHASE_1_2_PART3_COMPLETE.md` - Part 3 implementation details
 - `PHASE_1_2_PART4_COMPLETE.md` - Part 4 CRUD endpoints implementation
 - `PHASE_1_2_PART3_TESTING.md` - Manual testing guide for API
+- `PHASE_1_2_PART5_COMPLETE.md` - Part 5 authentication implementation
 - `PHASE_1_2_CHECKLIST.md` - Original full phase checklist
 
 ### 📋 Next Steps
-1. **Continue Phase 1.2 Part 5**: Add authentication placeholder
-2. Complete Part 6 (Error handling and edge cases)
+1. **Continue Phase 1.2 Part 6**: Improve error handling
+2. Complete Phase 1.2 and create summary documentation
 3. Move to Phase 1.3: EvaluationRubric CRUD
 4. Continue with remaining phases per roadmap
 
@@ -495,11 +507,14 @@ python -m pytest tests/unit/test_client_service.py -v
 
 # Test all CRUD endpoints
 python test_all_crud.py
+
+# Test authentication dependency
+python scripts/test_auth_dependency.py
 ```
 
 **Check API Documentation:**
 - Visit http://localhost:8000/docs when server is running
-- Current endpoints:
+- Current endpoints (all using authentication dependency):
   - `/api/teacher/test` and `/api/teacher/test-db` (test endpoints)
   - `/api/teacher/clients` (GET, POST)
   - `/api/teacher/clients/{id}` (GET, PUT, DELETE)

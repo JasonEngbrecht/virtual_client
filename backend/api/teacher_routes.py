@@ -19,6 +19,29 @@ router = APIRouter(
 )
 
 
+# Authentication dependency placeholder
+async def get_current_teacher() -> str:
+    """
+    Get the current authenticated teacher's ID.
+    
+    This is a placeholder that returns a mock teacher ID.
+    In production, this would:
+    - Validate JWT token or session
+    - Extract teacher ID from the token/session
+    - Verify the teacher exists in the database
+    - Return the authenticated teacher's ID
+    
+    Returns:
+        str: The authenticated teacher's ID
+        
+    Raises:
+        HTTPException: If authentication fails (not implemented in mock)
+    """
+    # TODO: Implement real authentication
+    # For now, return a mock teacher ID for testing
+    return "teacher-123"
+
+
 # Test endpoint to verify router is working
 @router.get("/test")
 async def test_endpoint() -> Dict[str, str]:
@@ -53,17 +76,16 @@ async def test_database(db: Session = Depends(get_db)) -> Dict[str, Any]:
 
 # GET /clients - List all clients for a teacher
 @router.get("/clients", response_model=List[ClientProfile])
-async def list_clients(db: Session = Depends(get_db)):
+async def list_clients(
+    db: Session = Depends(get_db),
+    teacher_id: str = Depends(get_current_teacher)
+):
     """
     Get all clients for the current teacher.
-    
-    For now, using hardcoded teacher_id until authentication is implemented.
     
     Returns:
         List of client profiles belonging to the teacher
     """
-    # TODO: Replace with get_current_teacher() dependency in Part 5
-    teacher_id = "teacher-123"
     
     # Get all clients for this teacher
     clients = client_service.get_teacher_clients(db, teacher_id)
@@ -75,12 +97,11 @@ async def list_clients(db: Session = Depends(get_db)):
 @router.post("/clients", response_model=ClientProfile, status_code=201)
 async def create_client(
     client_data: ClientProfileCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    teacher_id: str = Depends(get_current_teacher)
 ):
     """
     Create a new client for the current teacher.
-    
-    For now, using hardcoded teacher_id until authentication is implemented.
     
     Args:
         client_data: Client profile data from request body
@@ -88,8 +109,6 @@ async def create_client(
     Returns:
         Created client profile
     """
-    # TODO: Replace with get_current_teacher() dependency in Part 5
-    teacher_id = "teacher-123"
     
     # Create the client
     client = client_service.create_client_for_teacher(
@@ -105,7 +124,8 @@ async def create_client(
 @router.get("/clients/{client_id}", response_model=ClientProfile)
 async def get_client(
     client_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    teacher_id: str = Depends(get_current_teacher)
 ):
     """
     Get a specific client by ID.
@@ -121,8 +141,6 @@ async def get_client(
     Raises:
         404: Client not found or doesn't belong to teacher
     """
-    # TODO: Replace with get_current_teacher() dependency in Part 5
-    teacher_id = "teacher-123"
     
     # Get the client
     client = client_service.get(db, client_id)
@@ -143,7 +161,8 @@ async def get_client(
 async def update_client(
     client_id: str,
     client_data: ClientProfileUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    teacher_id: str = Depends(get_current_teacher)
 ):
     """
     Update a client's information.
@@ -160,8 +179,6 @@ async def update_client(
     Raises:
         404: Client not found or doesn't belong to teacher
     """
-    # TODO: Replace with get_current_teacher() dependency in Part 5
-    teacher_id = "teacher-123"
     
     # Check if teacher can update this client
     if not client_service.can_update(db, client_id, teacher_id):
@@ -184,7 +201,8 @@ async def update_client(
 @router.delete("/clients/{client_id}", status_code=204)
 async def delete_client(
     client_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    teacher_id: str = Depends(get_current_teacher)
 ):
     """
     Delete a client.
@@ -200,8 +218,6 @@ async def delete_client(
     Raises:
         404: Client not found or doesn't belong to teacher
     """
-    # TODO: Replace with get_current_teacher() dependency in Part 5
-    teacher_id = "teacher-123"
     
     # Check if teacher can delete this client
     if not client_service.can_delete(db, client_id, teacher_id):

@@ -1,6 +1,6 @@
 # Virtual Client - Social Work Training App
 
-**Status:** In Development | **Phase:** 1.2 - ClientProfile CRUD | **Progress:** PHASE COMPLETE (All 6 Parts Done)
+**Status:** In Development | **Phase:** 1.3 - EvaluationRubric CRUD | **Progress:** Ready to Start
 
 This project will create a virtual client that social work (and other areas) can interface with to practice working with clients.
 
@@ -254,10 +254,67 @@ virtual_client/
   - [x] Test each error case thoroughly
   
   **Testing Strategy**: After each part, run unit tests, manual tests, and integration tests before proceeding.
-- [ ] Phase 1.3: EvaluationRubric CRUD
+- [ ] **Phase 1.3: EvaluationRubric CRUD**
   - [ ] Storage service with criteria validation
   - [ ] Teacher API routes for rubric management
   - [ ] Cascade protection testing
+  
+  **Incremental Implementation Plan for Phase 1.3:**
+  
+  Following the successful approach from Phase 1.2, Phase 1.3 will be implemented in testable increments:
+  
+  **Part 1: Basic Rubric Service (15-20 minutes)**
+  - [ ] Create `backend/services/rubric_service.py` with minimal RubricService class inheriting from BaseCRUD
+  - [ ] Write basic instantiation test in `tests/unit/test_rubric_service.py`
+  - [ ] Verify BaseCRUD inheritance works correctly
+  - [ ] **Test**: Unit test for service instantiation
+  
+  **Part 2: Add Teacher-Filtered Methods (30-45 minutes)**
+  - [ ] Implement `get_teacher_rubrics()` method with unit test
+  - [ ] Implement `create_rubric_for_teacher()` method with unit test
+  - [ ] Add permission check methods (`can_update`, `can_delete`) with tests
+  - [ ] **Test**: Unit tests for each method with mock data
+  
+  **Part 3: Add First API Endpoint - List Rubrics (20-30 minutes)**
+  - [ ] Add GET `/api/teacher/rubrics` endpoint to existing teacher_routes.py
+  - [ ] Test with curl/Postman
+  - [ ] Write integration test
+  - [ ] **Test**: Manual API test + integration test file
+  
+  **Part 4: Add Remaining CRUD Endpoints (45-60 minutes)**
+  - [ ] POST `/api/teacher/rubrics` (create) - includes criteria validation
+  - [ ] GET `/api/teacher/rubrics/{id}` (retrieve)
+  - [ ] PUT `/api/teacher/rubrics/{id}` (update) - with partial update support
+  - [ ] DELETE `/api/teacher/rubrics/{id}` (delete) - basic version first
+  - [ ] **Test**: Manual testing + integration test for each endpoint
+  
+  **Part 5: Add Cascade Protection (30-45 minutes)**
+  - [ ] Add `is_rubric_in_use()` method to check if rubric is referenced by sessions
+  - [ ] Modify delete endpoint to check before deletion
+  - [ ] Add appropriate error response (409 Conflict)
+  - [ ] Create tests with mock session data
+  - [ ] **Test**: Unit test for protection logic + integration test for delete with conflict
+  
+  **Part 6: Enhanced Validation & Error Handling (20-30 minutes)**
+  - [ ] Add detailed validation error messages for criteria structure
+  - [ ] Ensure weight validation errors are user-friendly
+  - [ ] Add any rubric-specific error cases
+  - [ ] Create comprehensive error handling test script
+  - [ ] **Test**: Error handling test script similar to Phase 1.2
+  
+  **Part 7: Comprehensive Test Suite (15-20 minutes)**
+  - [ ] Create `test_phase_1_3_complete.py` script
+  - [ ] Test all endpoints with various scenarios
+  - [ ] Verify teacher isolation works correctly
+  - [ ] Test edge cases (empty criteria, invalid weights, etc.)
+  - [ ] **Test**: Full system test covering all functionality
+  
+  **Key Differences from Phase 1.2:**
+  - No router creation needed (add to existing teacher_routes.py)
+  - Additional complexity: criteria validation, nested data, cascade protection
+  - Reuse authentication and error patterns from Phase 1.2
+  
+  **Estimated Timeline:** 2.5-3.5 hours total
 - [ ] Phase 1.4: Session Management
   - [ ] Session service (Create, Read, Update messages, End)
   - [ ] Student and teacher API routes

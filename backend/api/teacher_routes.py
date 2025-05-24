@@ -3,7 +3,7 @@ Teacher API Routes
 Endpoints for teacher operations on virtual clients
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import Dict, Any, List
 
@@ -108,16 +108,31 @@ async def create_client(
         
     Returns:
         Created client profile
+        
+    Raises:
+        400: Invalid client data provided
+        500: Server error during creation
     """
     
-    # Create the client
-    client = client_service.create_client_for_teacher(
-        db,
-        client_data,
-        teacher_id
-    )
-    
-    return client
+    try:
+        # Create the client
+        client = client_service.create_client_for_teacher(
+            db,
+            client_data,
+            teacher_id
+        )
+        return client
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid client data: {str(e)}"
+        )
+    except Exception as e:
+        # Log the error in production
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while creating the client"
+        )
 
 
 # GET /clients/{client_id} - Get a specific client
@@ -139,7 +154,8 @@ async def get_client(
         Client profile if found and belongs to teacher
         
     Raises:
-        404: Client not found or doesn't belong to teacher
+        404: Client not found
+        403: Client exists but belongs to another teacher
     """
     
     # Get the client
@@ -147,11 +163,17 @@ async def get_client(
     
     # Check if client exists
     if not client:
-        raise HTTPException(status_code=404, detail="Client not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Client with ID '{client_id}' not found"
+        )
     
     # Check if client belongs to this teacher
     if client.created_by != teacher_id:
-        raise HTTPException(status_code=404, detail="Client not found")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to access this client"
+        )
     
     return client
 
@@ -177,24 +199,47 @@ async def update_client(
         Updated client profile
         
     Raises:
-        404: Client not found or doesn't belong to teacher
+        404: Client not found
+        403: Client exists but belongs to another teacher
+        400: Invalid update data
     """
     
-    # Check if teacher can update this client
-    if not client_service.can_update(db, client_id, teacher_id):
-        raise HTTPException(status_code=404, detail="Client not found")
+    # First check if client exists
+    client = client_service.get(db, client_id)
+    if not client:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Client with ID '{client_id}' not found"
+        )
+    
+    # Then check permissions
+    if client.created_by != teacher_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to update this client"
+        )
+    
+    # Validate update data
+    update_data = client_data.model_dump(exclude_unset=True)
+    if not update_data:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No valid fields provided for update"
+        )
     
     # Update the client
-    updated_client = client_service.update(
-        db,
-        client_id,
-        **client_data.model_dump(exclude_unset=True)
-    )
-    
-    if not updated_client:
-        raise HTTPException(status_code=404, detail="Client not found")
-    
-    return updated_client
+    try:
+        updated_client = client_service.update(
+            db,
+            client_id,
+            **update_data
+        )
+        return updated_client
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
 
 
 # DELETE /clients/{client_id} - Delete a client
@@ -216,18 +261,39 @@ async def delete_client(
         No content (204) on successful deletion
         
     Raises:
-        404: Client not found or doesn't belong to teacher
+        404: Client not found
+        403: Client exists but belongs to another teacher
     """
     
-    # Check if teacher can delete this client
-    if not client_service.can_delete(db, client_id, teacher_id):
-        raise HTTPException(status_code=404, detail="Client not found")
+    # First check if client exists
+    client = client_service.get(db, client_id)
+    if not client:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Client with ID '{client_id}' not found"
+        )
+    
+    # Then check permissions
+    if client.created_by != teacher_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to delete this client"
+        )
     
     # Delete the client
-    success = client_service.delete(db, client_id)
-    
-    if not success:
-        raise HTTPException(status_code=404, detail="Client not found")
+    try:
+        success = client_service.delete(db, client_id)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to delete client"
+            )
+    except Exception as e:
+        # Log the error in production
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while deleting the client"
+        )
     
     # Return 204 No Content on successful deletion
     return None

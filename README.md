@@ -1,21 +1,26 @@
 # Virtual Client - Social Work Training App
 
-**Status:** In Development | **Phase:** 1.3 - EvaluationRubric CRUD | **Progress:** Part 3 of 7 Complete
+**Status:** In Development | **Phase:** 1.3 - EvaluationRubric CRUD | **Progress:** Part 4 of 7 Complete
 
 This project will create a virtual client that social work (and other areas) can interface with to practice working with clients.
 
 ## 🌟 Latest Achievement
-**Phase 1.3 IN PROGRESS** - EvaluationRubric CRUD implementation (Part 3 of 7 Complete):
+**Phase 1.3 IN PROGRESS** - EvaluationRubric CRUD implementation (Part 4 of 7 Complete):
 - ✅ RubricService class with teacher-filtered methods
 - ✅ Unit tests for all service methods (5 tests passing)
-- ✅ First API endpoint implemented:
-  - GET /api/teacher/rubrics (list)
-- ✅ Integration test infrastructure for rubric endpoints
-- 🔄 Ready for Part 4: Remaining CRUD endpoints
+- ✅ All CRUD API endpoints implemented:
+  - GET /api/teacher/rubrics (list all rubrics)
+  - POST /api/teacher/rubrics (create with criteria validation)
+  - GET /api/teacher/rubrics/{id} (retrieve specific rubric)
+  - PUT /api/teacher/rubrics/{id} (update with partial support)
+  - DELETE /api/teacher/rubrics/{id} (delete rubric)
+- ✅ Comprehensive integration tests for all endpoints
+- ✅ Error handling (404, 403, 400, 422) matching client endpoints
+- 🔄 Ready for Part 5: Add cascade protection
 
 **Previous Achievement:** Phase 1.2 COMPLETE - Full ClientProfile CRUD with enhanced error handling
 
-**Next:** Phase 1.3 Part 4 - Remaining CRUD Endpoints
+**Next:** Phase 1.3 Part 5 - Add Cascade Protection
 
 ## Project Overview
 
@@ -271,12 +276,12 @@ virtual_client/
   - [x] Write integration test
   - [x] **Test**: Manual API test + integration test file
   
-  **Part 4: Add Remaining CRUD Endpoints (45-60 minutes)**
-  - [ ] POST `/api/teacher/rubrics` (create) - includes criteria validation
-  - [ ] GET `/api/teacher/rubrics/{id}` (retrieve)
-  - [ ] PUT `/api/teacher/rubrics/{id}` (update) - with partial update support
-  - [ ] DELETE `/api/teacher/rubrics/{id}` (delete) - basic version first
-  - [ ] **Test**: Manual testing + integration test for each endpoint
+  **Part 4: Add Remaining CRUD Endpoints (45-60 minutes)** ✅
+  - [x] POST `/api/teacher/rubrics` (create) - includes criteria validation
+  - [x] GET `/api/teacher/rubrics/{id}` (retrieve)
+  - [x] PUT `/api/teacher/rubrics/{id}` (update) - with partial update support
+  - [x] DELETE `/api/teacher/rubrics/{id}` (delete) - basic version first
+  - [x] **Test**: Manual testing + integration test for each endpoint
   
   **Part 5: Add Cascade Protection (30-45 minutes)**
   - [ ] Add `is_rubric_in_use()` method to check if rubric is referenced by sessions
@@ -454,7 +459,7 @@ Two-tier evaluation system:
 ## Current Project Status
 
 **Last Updated:** May 24, 2025
-**Current Focus:** Phase 1.3 (EvaluationRubric CRUD) - Part 3 of 7 Complete
+**Current Focus:** Phase 1.3 (EvaluationRubric CRUD) - Part 4 of 7 Complete
 
 ### ✅ Phase 1.2 Complete - ClientProfile CRUD Implementation
 
@@ -584,11 +589,16 @@ The current implementation is production-ready with these considerations:
   - Test runner scripts for easy execution
 
 ### 🚧 Ready to Start
-- **Phase 1.3: EvaluationRubric CRUD** (In Progress - Part 3 of 7 Complete)
+- **Phase 1.3: EvaluationRubric CRUD** (In Progress - Part 4 of 7 Complete)
   - ✅ RubricService class created and inheriting from BaseCRUD
   - ✅ Teacher-filtered methods implemented (get_teacher_rubrics, create_rubric_for_teacher, can_update, can_delete)
-  - ✅ GET `/api/teacher/rubrics` endpoint added
-  - 🔄 Currently ready for Part 4: Remaining CRUD endpoints
+  - ✅ All CRUD API endpoints implemented:
+    - GET `/api/teacher/rubrics` (list all rubrics)
+    - POST `/api/teacher/rubrics` (create with validation)
+    - GET `/api/teacher/rubrics/{id}` (retrieve specific rubric)
+    - PUT `/api/teacher/rubrics/{id}` (update with partial support)
+    - DELETE `/api/teacher/rubrics/{id}` (delete rubric)
+  - 🔄 Currently ready for Part 5: Add cascade protection
   - Continuing to follow incremental approach from Phase 1.2
 
 ### 📝 Key Documentation Files
@@ -597,11 +607,11 @@ The current implementation is production-ready with these considerations:
 - Various test scripts in root and `/scripts` directories
 
 ### 📋 Next Steps
-1. **Start Phase 1.3**: EvaluationRubric CRUD implementation
-2. Follow similar incremental approach as Phase 1.2
-3. Create rubric service with teacher filtering
-4. Add comprehensive validation for rubric criteria
-5. Continue with remaining phases per roadmap
+1. **Continue Phase 1.3 Part 5**: Add cascade protection for rubrics
+2. Implement `is_rubric_in_use()` method to check session references
+3. Add 409 Conflict response when trying to delete rubrics in use
+4. Create tests with mock session data
+5. Continue with Parts 6-7 to complete Phase 1.3
 
 ### 🚀 Quick Start for Next Session
 
@@ -643,7 +653,8 @@ python scripts/test_error_handling.py
   - `/api/teacher/test` and `/api/teacher/test-db` (test endpoints)
   - `/api/teacher/clients` (GET, POST)
   - `/api/teacher/clients/{id}` (GET, PUT, DELETE)
-  - `/api/teacher/rubrics` (GET) - **NEW**
+  - `/api/teacher/rubrics` (GET, POST)
+  - `/api/teacher/rubrics/{id}` (GET, PUT, DELETE)
 
 ## Development Environment Setup
 

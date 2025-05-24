@@ -320,3 +320,221 @@ async def list_rubrics(
     rubrics = rubric_service.get_teacher_rubrics(db, teacher_id)
     
     return rubrics
+
+
+# DELETE /rubrics/{rubric_id} - Delete a rubric
+@router.delete("/rubrics/{rubric_id}", status_code=204)
+async def delete_rubric(
+    rubric_id: str,
+    db: Session = Depends(get_db),
+    teacher_id: str = Depends(get_current_teacher)
+):
+    """
+    Delete an evaluation rubric.
+    
+    Only allows deletion if the rubric belongs to the current teacher.
+    Note: In Part 5, we'll add cascade protection to prevent deletion
+    if the rubric is being used by any sessions.
+    
+    Args:
+        rubric_id: The ID of the rubric to delete
+        
+    Returns:
+        No content (204) on successful deletion
+        
+    Raises:
+        404: Rubric not found
+        403: Rubric exists but belongs to another teacher
+        500: Server error during deletion
+    """
+    
+    # First check if rubric exists
+    rubric = rubric_service.get(db, rubric_id)
+    if not rubric:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Rubric with ID '{rubric_id}' not found"
+        )
+    
+    # Then check permissions
+    if rubric.created_by != teacher_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to delete this rubric"
+        )
+    
+    # Delete the rubric
+    try:
+        success = rubric_service.delete(db, rubric_id)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to delete rubric"
+            )
+    except Exception as e:
+        # Log the error in production
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while deleting the rubric"
+        )
+    
+    # Return 204 No Content on successful deletion
+    return None
+
+
+# PUT /rubrics/{rubric_id} - Update a rubric
+@router.put("/rubrics/{rubric_id}", response_model=EvaluationRubric)
+async def update_rubric(
+    rubric_id: str,
+    rubric_data: EvaluationRubricUpdate,
+    db: Session = Depends(get_db),
+    teacher_id: str = Depends(get_current_teacher)
+):
+    """
+    Update an evaluation rubric's information.
+    
+    Only allows updates if the rubric belongs to the current teacher.
+    Supports partial updates - only provided fields will be updated.
+    
+    Args:
+        rubric_id: The ID of the rubric to update
+        rubric_data: Updated rubric data (only provided fields will be updated)
+        
+    Returns:
+        Updated evaluation rubric
+        
+    Raises:
+        404: Rubric not found
+        403: Rubric exists but belongs to another teacher
+        400: Invalid update data (e.g., criteria weights don't sum to 1.0)
+        422: Validation error from Pydantic
+    """
+    
+    # First check if rubric exists
+    rubric = rubric_service.get(db, rubric_id)
+    if not rubric:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Rubric with ID '{rubric_id}' not found"
+        )
+    
+    # Then check permissions
+    if rubric.created_by != teacher_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to update this rubric"
+        )
+    
+    # Validate update data
+    update_data = rubric_data.model_dump(exclude_unset=True)
+    if not update_data:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No valid fields provided for update"
+        )
+    
+    # Update the rubric
+    try:
+        # Note: Pydantic validation in EvaluationRubricUpdate handles
+        # criteria weight sum validation if criteria are provided
+        updated_rubric = rubric_service.update(
+            db,
+            rubric_id,
+            **update_data
+        )
+        return updated_rubric
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+
+# POST /rubrics - Create a new rubric
+@router.post("/rubrics", response_model=EvaluationRubric, status_code=201)
+async def create_rubric(
+    rubric_data: EvaluationRubricCreate,
+    db: Session = Depends(get_db),
+    teacher_id: str = Depends(get_current_teacher)
+):
+    """
+    Create a new evaluation rubric for the current teacher.
+    
+    The rubric must include criteria with weights that sum to 1.0.
+    
+    Args:
+        rubric_data: Evaluation rubric data from request body
+        
+    Returns:
+        Created evaluation rubric
+        
+    Raises:
+        400: Invalid rubric data (e.g., criteria weights don't sum to 1.0)
+        422: Validation error from Pydantic
+        500: Server error during creation
+    """
+    
+    try:
+        # Create the rubric
+        # Note: Pydantic validation handles criteria weight sum validation
+        rubric = rubric_service.create_rubric_for_teacher(
+            db,
+            rubric_data,
+            teacher_id
+        )
+        return rubric
+    except ValueError as e:
+        # This could come from service-level validation
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid rubric data: {str(e)}"
+        )
+    except Exception as e:
+        # Log the error in production
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while creating the rubric"
+        )
+
+
+# GET /rubrics/{rubric_id} - Get a specific rubric
+@router.get("/rubrics/{rubric_id}", response_model=EvaluationRubric)
+async def get_rubric(
+    rubric_id: str,
+    db: Session = Depends(get_db),
+    teacher_id: str = Depends(get_current_teacher)
+):
+    """
+    Get a specific evaluation rubric by ID.
+    
+    Only returns the rubric if it belongs to the current teacher.
+    
+    Args:
+        rubric_id: The ID of the rubric to retrieve
+        
+    Returns:
+        Evaluation rubric if found and belongs to teacher
+        
+    Raises:
+        404: Rubric not found
+        403: Rubric exists but belongs to another teacher
+    """
+    
+    # Get the rubric
+    rubric = rubric_service.get(db, rubric_id)
+    
+    # Check if rubric exists
+    if not rubric:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Rubric with ID '{rubric_id}' not found"
+        )
+    
+    # Check if rubric belongs to this teacher
+    if rubric.created_by != teacher_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to access this rubric"
+        )
+    
+    return rubric

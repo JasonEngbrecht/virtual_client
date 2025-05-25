@@ -1,11 +1,18 @@
 # Virtual Client - Social Work Training App
 
-**Status:** In Development | **Phase:** 1.3 Complete ✅ | **Next:** Phase 1.4 - Session Management
+**Status:** In Development | **Phase:** 1.4 Part 1 Complete ✅ | **Next:** Phase 1.4 Part 2 - Basic Section Service
 
 This project will create a virtual client that social work (and other areas) can interface with to practice working with clients.
 
 ## 🌟 Latest Achievement
-**Phase 1.3 COMPLETE** ✅ - EvaluationRubric CRUD implementation (All 7 Parts Complete):
+**Phase 1.4 Part 1 COMPLETE** ✅ - Course Section Database Models:
+- ✅ **Part 1**: Created CourseSectionDB and SectionEnrollmentDB models
+  - SQLAlchemy models with proper relationships
+  - Pydantic schemas for create/update/response
+  - Comprehensive unit tests (264 lines)
+  - Database tables verified and working
+
+**Previous Achievement:** Phase 1.3 COMPLETE - EvaluationRubric CRUD implementation (All 7 Parts Complete):
 - ✅ **Part 1**: RubricService class inheriting from BaseCRUD
 - ✅ **Part 2**: Teacher-filtered methods (get_teacher_rubrics, create_rubric_for_teacher, can_update, can_delete)
 - ✅ **Part 3**: GET /api/teacher/rubrics endpoint with integration test
@@ -30,7 +37,7 @@ This project will create a virtual client that social work (and other areas) can
 
 **Previous Achievement:** Phase 1.2 COMPLETE - Full ClientProfile CRUD with enhanced error handling
 
-**Next:** Phase 1.4 - Session Management
+**Next:** Phase 1.4 - Course Section Management
 
 ## Project Overview
 
@@ -179,23 +186,92 @@ virtual_client/
 }
 ```
 
-### Session
+### CourseSection (NEW)
+```python
+{
+    "id": "uuid",
+    "teacher_id": "string",
+    "name": "string",  # e.g., "SW 101 - Fall 2025"
+    "description": "text",
+    "course_code": "string",  # e.g., "SW101"
+    "term": "string",  # e.g., "Fall 2025"
+    "is_active": "boolean",
+    "created_at": "timestamp",
+    "settings": {}  # section-specific settings
+}
+```
+
+### SectionEnrollment (NEW)
+```python
+{
+    "id": "uuid",
+    "section_id": "uuid",
+    "student_id": "string",
+    "enrolled_at": "timestamp",
+    "is_active": "boolean",
+    "role": "student|ta"  # future: teaching assistants
+}
+```
+
+### Assignment (NEW)
+```python
+{
+    "id": "uuid",
+    "section_id": "uuid",  # belongs to a course section
+    "name": "string",
+    "description": "text",
+    "instructions": "text",
+    "due_date": "timestamp",
+    "available_from": "timestamp",
+    "available_until": "timestamp",
+    "max_attempts_per_client": "integer",
+    "show_evaluation_immediately": "boolean",
+    "allow_practice_mode": "boolean",
+    "is_published": "boolean",
+    "created_at": "timestamp",
+    "order": "integer"  # display order in section
+}
+```
+
+### AssignmentClient (NEW)
+```python
+{
+    "id": "uuid",
+    "assignment_id": "uuid",
+    "client_profile_id": "uuid",
+    "rubric_id": "uuid",
+    "order": "integer",  # which client to complete first/second/etc
+    "is_required": "boolean",  # future: optional clients
+    "special_instructions": "text"  # client-specific instructions
+}
+```
+
+### Session (UPDATED)
 ```python
 {
     "id": "uuid",
     "student_id": "string",
+    "section_id": "uuid",  # which course section (null for practice)
+    "assignment_id": "uuid",  # null for practice sessions
+    "assignment_client_id": "uuid",  # specific client within assignment
     "client_profile_id": "uuid",
     "rubric_id": "uuid",
+    "session_type": "assignment|practice",
+    "attempt_number": "integer",
     "messages": [
         {
-            "role": "student|client",
+            "role": "student|client|system",
             "content": "text",
-            "timestamp": "datetime"
+            "timestamp": "datetime",
+            "metadata": {}  # emotion state, topics, etc.
         }
     ],
     "started_at": "timestamp",
     "ended_at": "timestamp",
-    "evaluation_result": "evaluation_id"
+    "is_active": "boolean",
+    "evaluation_result_id": "uuid",
+    "evaluation_visible_to_student": "boolean",
+    "session_notes": "text"
 }
 ```
 
@@ -322,14 +398,29 @@ virtual_client/
   - Reuse authentication and error patterns from Phase 1.2
   
   **Estimated Timeline:** 2.5-3.5 hours total
-- [ ] Phase 1.4: Session Management
-  - [ ] Session service (Create, Read, Update messages, End)
+- [ ] **Phase 1.4: Course Section Management** (IN PROGRESS - 3.5-4.5 hours)
+  - [x] Part 1: Database Models and Schema ✅ (25 min)
+  - [ ] Part 2: Basic Section Service (30-40 min)
+  - [ ] Part 3: Section CRUD Endpoints (45-60 min)
+  - [ ] Part 4: Enrollment Service Layer (45-60 min)
+  - [ ] Part 5: Enrollment Management Endpoints (45-60 min)
+  - [ ] Part 6: Student Section Access (30-45 min)
+  - [ ] Part 7: Section Summary and Statistics (30-40 min)
+  - [ ] Part 8: Comprehensive Testing & Documentation (45-60 min)
+- [ ] **Phase 1.5: Assignment Management** (NEW - 4-5 hours)
+  - [ ] Assignment CRUD within sections
+  - [ ] Assignment-Client-Rubric linking
+  - [ ] Assignment settings and publishing
+  - [ ] Student assignment viewing
+- [ ] **Phase 1.6: Session Management** (REVISED - 4-5 hours)
+  - [ ] Practice sessions (any client/rubric)
+  - [ ] Assignment sessions (following rules)
+  - [ ] Message handling and transcripts
   - [ ] Student and teacher API routes
-  - [ ] Session state management tests
-- [ ] Phase 1.5: Evaluation System
-  - [ ] Evaluation service (Create from session, Read)
-  - [ ] Scoring algorithm implementation
-  - [ ] Student and teacher retrieval routes
+- [ ] **Phase 1.7: Evaluation System** (ORIGINAL 1.5 - 3-4 hours)
+  - [ ] Automated evaluation based on rubrics
+  - [ ] Teacher review capabilities
+  - [ ] Student visibility controls
 - [x] Implement API documentation
 
 ### Phase 2: LLM Integration (Week 2)
@@ -406,17 +497,13 @@ API Route (FastAPI) → Service Layer → Database Layer (SQLAlchemy) → SQLite
 
 ### Time Estimates
 - Phase 1.1 (Database Foundation): 2-3 hours ✅ COMPLETED
-- Phase 1.2 (ClientProfile CRUD): 3-4 hours ✅ COMPLETED
-  - Part 1 (Basic Service): 30 minutes ✅
-  - Part 2 (Teacher Methods): 1 hour ✅
-  - Part 3 (Minimal Router): 30 minutes ✅
-  - Part 4 (CRUD Endpoints): 1.5 hours ✅
-  - Part 5 (Auth Placeholder): 30 minutes ✅
-  - Part 6 (Error Handling): 30 minutes ✅
+- Phase 1.2 (ClientProfile CRUD): 3-4 hours ✅ COMPLETED (~3.25 hours)
 - Phase 1.3 (EvaluationRubric CRUD): 2-3 hours ✅ COMPLETED (~3 hours)
-- Phase 1.4 (Session Management): 4-5 hours
-- Phase 1.5 (Evaluation System): 3-4 hours
-- **Total Estimated Time**: 14-19 hours
+- Phase 1.4 (Course Section Management): 3.5-4.5 hours
+- Phase 1.5 (Assignment Management): 4-5 hours
+- Phase 1.6 (Session Management): 4-5 hours
+- Phase 1.7 (Evaluation System): 3-4 hours
+- **Total Estimated Time**: 23-28 hours
 
 ## Key Technical Decisions
 
@@ -468,10 +555,160 @@ Two-tier evaluation system:
 - Mobile application
 - Integration with LMS systems
 
+## Data Hierarchy and Relationships
+
+### Core Data Structure
+```
+Teacher
+├── Course Sections
+│   ├── Enrolled Students
+│   └── Assignments
+│       └── Assignment Clients (Client + Rubric pairs)
+├── Client Profiles (reusable across assignments)
+└── Evaluation Rubrics (reusable across assignments)
+
+Student
+├── Course Enrollments
+└── Sessions
+    ├── Assignment Sessions (linked to specific assignment)
+    └── Practice Sessions (free practice)
+```
+
+### Session Types
+
+1. **Practice Sessions**: 
+   - Student-initiated free practice
+   - Student selects any available client and rubric
+   - Evaluations always visible immediately
+   - No attempt limits
+   - Not linked to any assignment
+
+2. **Assignment Sessions**:
+   - Created from teacher assignments
+   - Pre-selected client(s) and rubric(s)
+   - Teacher controls evaluation visibility
+   - May have attempt limits
+   - Must complete all clients in assignment
+
+### Key Features
+
+- **Full Transcript Preservation**: All messages, timestamps, and metadata saved
+- **Flexible Evaluation**: Rubrics can be applied by LLM after session completion
+- **Teacher Monitoring**: View sessions organized by student, client, assignment, or date
+- **Evaluation Control**: Teachers decide when students see evaluations
+- **Multiple Attempts**: Assignments can allow multiple attempts per student
+- **Assignment Flexibility**: 
+  - Assignments can include multiple client profiles
+  - Each client within an assignment can have a different rubric
+  - Teachers can specify order of client interactions
+
+## Phase 1.4: Course Section Management - Detailed Implementation Plan
+
+### Overview
+Course sections form the organizational foundation for the entire system. They establish the teacher-student relationships and provide context for assignments and sessions.
+
+**Estimated Total Time**: 3.5-4.5 hours across 8 parts
+
+### Part 1: Database Models and Schema (20-30 minutes) ✅ COMPLETE
+**Goal**: Create database models for course sections and enrollments
+
+**Implementation**:
+- ✅ Created `backend/models/course_section.py`
+- ✅ SQLAlchemy models: `CourseSectionDB`, `SectionEnrollmentDB`
+- ✅ Pydantic schemas: Create, Update, Response
+- ✅ Updated model registry in `__init__.py`
+
+**Test Strategy**:
+- ✅ Test model creation in database
+- ✅ Verify foreign key constraints
+- ✅ Test enrollment relationships
+
+**Actual Time**: 25 minutes
+
+### Part 2: Basic Section Service (30-40 minutes)
+**Goal**: Create section service with teacher-specific operations
+
+**Implementation**:
+- Create `backend/services/section_service.py`
+- Methods: `get_teacher_sections()`, `create_section_for_teacher()`, `can_update()`, `can_delete()`
+
+**Test Strategy**:
+- Unit test service instantiation
+- Test teacher filtering
+- Test permission methods
+
+### Part 3: Section CRUD Endpoints (45-60 minutes)
+**Goal**: Add teacher endpoints for section management
+
+**Endpoints**:
+- GET `/api/teacher/sections` - list sections
+- POST `/api/teacher/sections` - create section
+- GET `/api/teacher/sections/{id}` - get details
+- PUT `/api/teacher/sections/{id}` - update
+- DELETE `/api/teacher/sections/{id}` - delete
+
+**Test Strategy**:
+- Integration test each endpoint
+- Test validation rules
+- Test cascade prevention
+
+### Part 4: Enrollment Service Layer (45-60 minutes)
+**Goal**: Implement enrollment management logic
+
+**Implementation**:
+- Create `backend/services/enrollment_service.py`
+- Methods: `enroll_student()`, `unenroll_student()`, `get_section_roster()`, `is_student_enrolled()`
+
+**Business Rules**:
+- No duplicate enrollments
+- Soft delete for unenrollment
+- Only active enrollments count
+
+### Part 5: Enrollment Management Endpoints (45-60 minutes)
+**Goal**: Add teacher endpoints for managing enrollments
+
+**Endpoints**:
+- GET `/api/teacher/sections/{id}/roster` - view roster
+- POST `/api/teacher/sections/{id}/enroll` - enroll student
+- DELETE `/api/teacher/sections/{id}/enroll/{student_id}` - unenroll
+
+**Test Strategy**:
+- Test enrollment process
+- Test permissions
+- Test soft delete
+
+### Part 6: Student Section Access (30-45 minutes)
+**Goal**: Add student endpoints to view their sections
+
+**Implementation**:
+- Create/update `backend/api/student_routes.py`
+- Mock `get_current_student()` dependency
+- Endpoints: GET `/api/student/sections`, GET `/api/student/sections/{id}`
+
+**Security Rules**:
+- Students only see enrolled sections
+- Cannot see full roster
+
+### Part 7: Section Summary and Statistics (30-40 minutes)
+**Goal**: Add helpful summary data and queries
+
+**Implementation**:
+- Add summary calculations
+- Search functionality
+- Response enhancements with counts
+
+### Part 8: Comprehensive Testing & Documentation (45-60 minutes)
+**Goal**: Ensure robust implementation with full test coverage
+
+**Implementation**:
+- Create `test_phase_1_4_complete.py`
+- Test complete workflows
+- Update documentation
+
 ## Current Project Status
 
-**Last Updated:** May 24, 2025
-**Current Focus:** Phase 1.3 Complete - Ready for Phase 1.4 (Session Management)
+**Last Updated:** May 25, 2025
+**Current Focus:** Phase 1.4 Part 1 Complete - Ready for Part 2 (Basic Section Service)
 
 ### ✅ Phase 1.3 Part 5 Complete - Cascade Protection
 
@@ -704,13 +941,13 @@ The current implementation is production-ready with these considerations:
   - Enhanced validation messages showing actual values
   - Comprehensive test suite verifying all functionality
 
-### 🚧 Ready to Start
-- **Phase 1.4: Session Management**
-  - Session service (Create, Read, Update messages, End)
-  - Student and teacher API routes
-  - Session state management tests
-  - Real-time message handling
-  - Session lifecycle management
+### 🔄 In Progress
+- **Phase 1.4: Course Section Management** (Started)
+  - ✅ Part 1: Database Models and Schema (25 min)
+    - Created CourseSectionDB and SectionEnrollmentDB models
+    - All 15 unit tests passing
+    - Database tables verified and working
+  - Ready for Part 2: Basic Section Service
 
 ### 📝 Key Documentation Files
 - `README.md` - Main project documentation (includes Phase 1.2 complete details)
@@ -718,12 +955,12 @@ The current implementation is production-ready with these considerations:
 - Various test scripts in root and `/scripts` directories
 
 ### 📋 Next Steps
-1. **Begin Phase 1.4**: Session Management implementation
-2. Design session service architecture
-3. Implement session creation and management
-4. Add real-time message handling
-5. Create student-specific endpoints
-6. Build session state management system
+1. **Begin Phase 1.4**: Course Section Management implementation
+2. Create section and enrollment models
+3. Implement teacher section management
+4. Add student enrollment features
+5. Build roster viewing capabilities
+6. Prepare foundation for assignments
 
 ### 🚀 Quick Start for Next Session
 
@@ -761,8 +998,11 @@ python scripts/test_error_handling.py
 # Test rubric error handling
 python scripts/test_rubric_error_handling.py
 
-# Test Phase 1.3 complete
-python test_phase_1_3_complete.py
+# Course section tests - ALL PASSING ✅
+python -m pytest tests/unit/test_course_section.py -v
+
+# Test course section models - WORKING ✅
+python test_course_section_models.py
 ```
 
 **Check API Documentation:**
@@ -859,22 +1099,50 @@ python app.py
 - `PUT /api/teacher/rubrics/{id}` - Update rubric
 - `DELETE /api/teacher/rubrics/{id}` - Delete rubric
 
-#### Monitoring
+#### Section Management (Future - Phase 1.4)
+- `POST /api/teacher/sections` - Create course section
+- `GET /api/teacher/sections` - List teacher's sections
+- `GET /api/teacher/sections/{id}` - Get section details
+- `PUT /api/teacher/sections/{id}` - Update section
+- `DELETE /api/teacher/sections/{id}` - Delete section
+- `GET /api/teacher/sections/{id}/roster` - View enrolled students
+- `POST /api/teacher/sections/{id}/enroll` - Enroll a student
+- `DELETE /api/teacher/sections/{id}/enroll/{student_id}` - Unenroll student
+
+#### Assignment Management (Future - Phase 1.5)
+- `POST /api/teacher/sections/{id}/assignments` - Create assignment
+- `GET /api/teacher/sections/{id}/assignments` - List assignments
+- `GET /api/teacher/assignments/{id}` - Get assignment details
+- `PUT /api/teacher/assignments/{id}` - Update assignment
+- `DELETE /api/teacher/assignments/{id}` - Delete assignment
+- `POST /api/teacher/assignments/{id}/clients` - Add client to assignment
+- `DELETE /api/teacher/assignments/{id}/clients/{client_id}` - Remove client
+
+#### Monitoring (Future - Phase 1.6)
 - `GET /api/teacher/sessions` - View all student sessions
 - `GET /api/teacher/sessions/{id}` - View session details
 - `GET /api/teacher/evaluations` - View all evaluations
 
 ### Student Endpoints
-#### Session Management
-- `GET /api/student/clients` - List available clients
-- `POST /api/student/sessions` - Start new session
-- `GET /api/student/sessions` - List own sessions
+#### Section Access (Future - Phase 1.4)
+- `GET /api/student/sections` - List enrolled sections
+- `GET /api/student/sections/{id}` - Get section details
+
+#### Assignment Access (Future - Phase 1.5)
+- `GET /api/student/assignments` - List assignments across all sections
+- `GET /api/student/assignments/{id}` - Get assignment details
+
+#### Session Management (Future - Phase 1.6)
+- `GET /api/student/clients` - List available practice clients
+- `POST /api/student/sessions/practice` - Start practice session
+- `POST /api/student/sessions/assignment/{id}` - Start assignment session
+- `GET /api/student/sessions` - List all sessions
 - `GET /api/student/sessions/{id}` - Get session details
 - `POST /api/student/sessions/{id}/messages` - Send message to client
 - `POST /api/student/sessions/{id}/end` - End session
 
-#### Evaluations
-- `GET /api/student/evaluations` - List own evaluations
+#### Evaluations (Future - Phase 1.7)
+- `GET /api/student/evaluations` - List visible evaluations
 - `GET /api/student/evaluations/{id}` - Get evaluation details
 
 ## Next Steps

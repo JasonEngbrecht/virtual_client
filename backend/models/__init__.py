@@ -49,6 +49,16 @@ from .session import (
     EndSessionRequest
 )
 
+from .course_section import (
+    CourseSectionDB,
+    SectionEnrollmentDB,
+    CourseSectionCreate,
+    CourseSectionUpdate,
+    CourseSection,
+    SectionEnrollmentCreate,
+    SectionEnrollment
+)
+
 # Export all models for easy access
 __all__ = [
     # Client Profile
@@ -92,4 +102,13 @@ __all__ = [
     'SendMessageRequest',
     'SendMessageResponse',
     'EndSessionRequest',
+    
+    # Course Section
+    'CourseSectionDB',
+    'SectionEnrollmentDB',
+    'CourseSectionCreate',
+    'CourseSectionUpdate',
+    'CourseSection',
+    'SectionEnrollmentCreate',
+    'SectionEnrollment',
 ]

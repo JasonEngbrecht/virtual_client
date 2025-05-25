@@ -1,11 +1,23 @@
 # Virtual Client - Social Work Training App
 
-**Status:** In Development | **Phase:** 1.4 Part 3 Complete ✅ | **Next:** Phase 1.4 Part 4 - Enrollment Service Layer
+**Status:** In Development | **Phase:** 1.4 Part 4 Complete ✅ | **Next:** Phase 1.4 Part 5 - Enrollment Management Endpoints
 
 This project will create a virtual client that social work (and other areas) can interface with to practice working with clients.
 
 ## 🌟 Latest Achievement
-**Phase 1.4 Part 3 COMPLETE** ✅ - Section CRUD Endpoints:
+**Phase 1.4 Part 4 COMPLETE** ✅ - Enrollment Service Layer:
+- ✅ **Part 4**: Implemented comprehensive enrollment management service
+  - `enroll_student()` - Enrolls students with duplicate prevention and reactivation
+  - `unenroll_student()` - Soft delete preserving enrollment history
+  - `get_section_roster()` - Retrieves active/inactive enrollments
+  - `is_student_enrolled()` - Checks active enrollment status
+  - `get_student_sections()` - Gets all sections for a student
+  - Business rules: No duplicates, soft delete, section validation
+  - 20 comprehensive unit tests all passing
+  - Fixed SQLAlchemy session management issues in tests
+  - Following established service patterns
+
+**Previous Achievement:** Phase 1.4 Part 3 COMPLETE - Section CRUD Endpoints:
 - ✅ **Part 3**: Implemented all 5 CRUD endpoints for course sections
   - GET /api/teacher/sections - List teacher's sections
   - POST /api/teacher/sections - Create new section
@@ -50,13 +62,14 @@ This project will create a virtual client that social work (and other areas) can
 
 **Previous Achievement:** Phase 1.2 COMPLETE - Full ClientProfile CRUD with enhanced error handling (~3.25 hours)
 
-**Current Progress:** Phase 1.4 Parts 1-3 COMPLETE
+**Current Progress:** Phase 1.4 Parts 1-4 COMPLETE
 - ✅ Part 1: Database Models (25 minutes) 
 - ✅ Part 2: Section Service (30 minutes)
 - ✅ Part 3: Section CRUD Endpoints (45 minutes)
-- Total Phase 1.4 time so far: 100 minutes (~1.7 hours)
+- ✅ Part 4: Enrollment Service Layer (45 minutes)
+- Total Phase 1.4 time so far: 145 minutes (~2.4 hours)
 
-**Next:** Phase 1.4 Part 4 - Enrollment Service Layer
+**Next:** Phase 1.4 Part 5 - Enrollment Management Endpoints
 
 ## Project Overview
 
@@ -421,7 +434,7 @@ virtual_client/
   - [x] Part 1: Database Models and Schema ✅ (25 min)
   - [x] Part 2: Basic Section Service ✅ (30 min)
   - [x] Part 3: Section CRUD Endpoints ✅ (45 min)
-  - [ ] Part 4: Enrollment Service Layer (45-60 min)
+  - [x] Part 4: Enrollment Service Layer ✅ (45 min)
   - [ ] Part 5: Enrollment Management Endpoints (45-60 min)
   - [ ] Part 6: Student Section Access (30-45 min)
   - [ ] Part 7: Section Summary and Statistics (30-40 min)
@@ -518,12 +531,12 @@ API Route (FastAPI) → Service Layer → Database Layer (SQLAlchemy) → SQLite
 - Phase 1.1 (Database Foundation): 2-3 hours ✅ COMPLETED
 - Phase 1.2 (ClientProfile CRUD): 3-4 hours ✅ COMPLETED (~3.25 hours)
 - Phase 1.3 (EvaluationRubric CRUD): 2-3 hours ✅ COMPLETED (~3 hours)
-- Phase 1.4 (Course Section Management): 3.5-4.5 hours (100 min completed, ~2-3 hours remaining)
+- Phase 1.4 (Course Section Management): 3.5-4.5 hours (145 min completed, ~1.5-2.5 hours remaining)
 - Phase 1.5 (Assignment Management): 4-5 hours
 - Phase 1.6 (Session Management): 4-5 hours
 - Phase 1.7 (Evaluation System): 3-4 hours
 - **Total Estimated Time**: 23-28 hours
-- **Time Completed So Far**: ~10.9 hours
+- **Time Completed So Far**: ~11.65 hours
 
 ## Key Technical Decisions
 
@@ -682,17 +695,28 @@ Course sections form the organizational foundation for the entire system. They e
 
 **Actual Time**: 45 minutes
 
-### Part 4: Enrollment Service Layer (45-60 minutes)
+### Part 4: Enrollment Service Layer (45-60 minutes) ✅ COMPLETE
 **Goal**: Implement enrollment management logic
 
 **Implementation**:
-- Create `backend/services/enrollment_service.py`
-- Methods: `enroll_student()`, `unenroll_student()`, `get_section_roster()`, `is_student_enrolled()`
+- ✅ Created `backend/services/enrollment_service.py`
+- ✅ Methods: `enroll_student()`, `unenroll_student()`, `get_section_roster()`, `is_student_enrolled()`, `get_student_sections()`
+- ✅ Global service instance following established patterns
 
 **Business Rules**:
-- No duplicate enrollments
-- Soft delete for unenrollment
-- Only active enrollments count
+- ✅ No duplicate enrollments (reactivates if re-enrolling)
+- ✅ Soft delete for unenrollment (preserves history)
+- ✅ Only active enrollments count for queries
+- ✅ Section validation before enrollment
+
+**Test Strategy**:
+- ✅ 20 comprehensive unit tests
+- ✅ Test duplicate handling and reactivation
+- ✅ Test soft delete and history
+- ✅ Fixed SQLAlchemy session management issues
+- ✅ All tests passing
+
+**Actual Time**: 45 minutes
 
 ### Part 5: Enrollment Management Endpoints (45-60 minutes)
 **Goal**: Add teacher endpoints for managing enrollments
@@ -738,7 +762,7 @@ Course sections form the organizational foundation for the entire system. They e
 ## Current Project Status
 
 **Last Updated:** May 25, 2025
-**Current Focus:** Phase 1.4 Part 3 Complete - Ready for Part 4 (Enrollment Service Layer)
+**Current Focus:** Phase 1.4 Part 4 Complete - Ready for Part 5 (Enrollment Management Endpoints)
 
 ### ✅ Phase 1.4 Part 3 Complete - Section CRUD Endpoints
 
@@ -999,7 +1023,7 @@ The current implementation is production-ready with these considerations:
   - Comprehensive test suite verifying all functionality
 
 ### 🔄 In Progress
-- **Phase 1.4: Course Section Management** (Parts 1-3 Complete)
+- **Phase 1.4: Course Section Management** (Parts 1-4 Complete)
   - ✅ Part 1: Database Models and Schema (25 min)
     - Created CourseSectionDB and SectionEnrollmentDB models
     - All 15 unit tests passing
@@ -1012,7 +1036,12 @@ The current implementation is production-ready with these considerations:
     - All 5 CRUD endpoints implemented
     - 18 integration tests passing
     - Full error handling and teacher isolation
-  - Ready for Part 4: Enrollment Service Layer
+  - ✅ Part 4: Enrollment Service Layer (45 min)
+    - Created EnrollmentService with 5 core methods
+    - Soft delete pattern for enrollment history
+    - 20 unit tests with full coverage
+    - Business rules enforced
+  - Ready for Part 5: Enrollment Management Endpoints
 
 ### 📝 Key Documentation Files
 - `README.md` - Main project documentation (includes Phase 1.2 complete details)
@@ -1080,6 +1109,15 @@ python test_section_service.py
 
 # Test section endpoints - WORKING ✅
 python test_section_endpoints.py
+
+# Enrollment service tests - ALL PASSING ✅
+python -m pytest tests/unit/test_enrollment_service.py -v
+
+# Test enrollment service - WORKING ✅
+python test_enrollment_service.py
+
+# Quick enrollment unit tests
+python test_enrollment_unit.py
 ```
 
 **Check API Documentation:**

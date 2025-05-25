@@ -5,6 +5,12 @@ Unit tests for RubricService
 import pytest
 from unittest.mock import Mock, patch
 from datetime import datetime
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+
+from backend.services.database import Base
+from backend.models.session import SessionDB
 from backend.services.rubric_service import RubricService, rubric_service
 from backend.models.rubric import EvaluationRubricDB, EvaluationRubricCreate
 
@@ -138,3 +144,108 @@ def test_can_delete_rubric():
         result = service.can_delete(db_mock, "rubric-1", "teacher-456")
         assert result is False
         mock_can_update.assert_called_once_with(db_mock, "rubric-1", "teacher-456")
+
+
+def test_is_rubric_in_use_no_sessions():
+    """Test is_rubric_in_use when rubric has no sessions"""
+    service = RubricService()
+    
+    # Create a mock database session
+    db_mock = Mock()
+    
+    # Mock the execute method to return 0 (no sessions using this rubric)
+    mock_result = Mock()
+    mock_result.scalar.return_value = 0
+    db_mock.execute.return_value = mock_result
+    
+    # Call the method
+    result = service.is_rubric_in_use(db_mock, "rubric-123")
+    
+    # Verify the result
+    assert result is False
+    
+    # Verify the database was queried
+    db_mock.execute.assert_called_once()
+
+
+def test_is_rubric_in_use_with_sessions():
+    """Test is_rubric_in_use when rubric is being used by sessions"""
+    service = RubricService()
+    
+    # Create a mock database session
+    db_mock = Mock()
+    
+    # Mock the execute method to return 3 (3 sessions using this rubric)
+    mock_result = Mock()
+    mock_result.scalar.return_value = 3
+    db_mock.execute.return_value = mock_result
+    
+    # Call the method
+    result = service.is_rubric_in_use(db_mock, "rubric-456")
+    
+    # Verify the result
+    assert result is True
+    
+    # Verify the database was queried
+    db_mock.execute.assert_called_once()
+
+
+def test_is_rubric_in_use_integration():
+    """Integration test for is_rubric_in_use with real database"""
+    # Create in-memory SQLite database for testing
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    
+    # Create tables
+    Base.metadata.create_all(bind=engine)
+    
+    # Create test database session
+    db = SessionLocal()
+    
+    try:
+        service = RubricService()
+        
+        # Test with rubric that has no sessions
+        result = service.is_rubric_in_use(db, "unused-rubric-id")
+        assert result is False
+        
+        # Create a session that uses a rubric
+        test_session = SessionDB(
+            id="session-1",
+            student_id="student-123",
+            client_profile_id="client-123",
+            rubric_id="used-rubric-id",
+            messages=[]
+        )
+        db.add(test_session)
+        db.commit()
+        
+        # Test with rubric that is being used
+        result = service.is_rubric_in_use(db, "used-rubric-id")
+        assert result is True
+        
+        # Test with different rubric ID
+        result = service.is_rubric_in_use(db, "another-unused-rubric")
+        assert result is False
+        
+        # Add another session with the same rubric
+        test_session2 = SessionDB(
+            id="session-2",
+            student_id="student-456",
+            client_profile_id="client-456",
+            rubric_id="used-rubric-id",
+            messages=[]
+        )
+        db.add(test_session2)
+        db.commit()
+        
+        # Verify it still returns True (even with multiple sessions)
+        result = service.is_rubric_in_use(db, "used-rubric-id")
+        assert result is True
+        
+    finally:
+        db.close()

@@ -39,32 +39,77 @@ class ScoringLevel(BaseModel):
 
 class RubricCriterion(BaseModel):
     """Individual evaluation criterion"""
-    name: str = Field(..., min_length=1, max_length=100)
-    description: str
-    weight: float = Field(..., ge=0, le=1)
-    evaluation_points: List[str] = Field(..., min_items=1)
-    scoring_levels: ScoringLevel = Field(default_factory=ScoringLevel)
+    name: str = Field(
+        ..., 
+        min_length=1, 
+        max_length=100,
+        description="Name of the evaluation criterion (e.g., 'Communication Skills')"
+    )
+    description: str = Field(
+        ...,
+        description="Detailed description of what this criterion evaluates"
+    )
+    weight: float = Field(
+        ..., 
+        ge=0, 
+        le=1,
+        description="Weight of this criterion (0.0 to 1.0). All criteria weights must sum to 1.0"
+    )
+    evaluation_points: List[str] = Field(
+        ..., 
+        min_items=1,
+        description="List of specific behaviors or skills to evaluate (at least one required)"
+    )
+    scoring_levels: ScoringLevel = Field(
+        default_factory=ScoringLevel,
+        description="Scoring levels for this criterion (defaults to 4-point scale)"
+    )
     
     @validator('weight')
     def validate_weight(cls, v):
         """Ensure weight is between 0 and 1"""
-        if not 0 <= v <= 1:
-            raise ValueError('Weight must be between 0 and 1')
+        if v < 0:
+            raise ValueError(f'Criterion weight cannot be negative. You provided {v}, but weights must be between 0.0 and 1.0')
+        if v > 1:
+            raise ValueError(f'Criterion weight cannot exceed 1.0. You provided {v}, but the maximum allowed weight is 1.0')
         return v
 
 
 class EvaluationRubricBase(BaseModel):
     """Base evaluation rubric schema"""
-    name: str = Field(..., min_length=1, max_length=200)
-    description: Optional[str] = None
-    criteria: List[RubricCriterion] = Field(..., min_items=1)
+    name: str = Field(
+        ..., 
+        min_length=1, 
+        max_length=200,
+        description="Name of the evaluation rubric"
+    )
+    description: Optional[str] = Field(
+        None,
+        description="Optional description of the rubric's purpose and use"
+    )
+    criteria: List[RubricCriterion] = Field(
+        ..., 
+        min_items=1,
+        description="List of evaluation criteria. At least one criterion is required"
+    )
     
     @validator('criteria')
     def validate_total_weight(cls, v):
         """Ensure all criteria weights sum to 1.0"""
+        if not v:
+            raise ValueError('At least one evaluation criterion is required')
+        
         total_weight = sum(criterion.weight for criterion in v)
-        if abs(total_weight - 1.0) > 0.001:  # Allow small floating point differences
-            raise ValueError(f'Criteria weights must sum to 1.0, got {total_weight}')
+        
+        # Allow small floating point differences (0.001 tolerance)
+        if abs(total_weight - 1.0) > 0.001:
+            # Provide helpful error message with current sum and guidance
+            criteria_info = [f"{c.name}: {c.weight}" for c in v]
+            raise ValueError(
+                f'Criteria weights must sum to exactly 1.0, but your weights sum to {total_weight:.3f}. '
+                f'Current weights: {{", ".join(criteria_info)}}. '
+                f'Please adjust the weights so they total 1.0 (100% of the evaluation).'
+            )
         return v
 
 
@@ -75,17 +120,39 @@ class EvaluationRubricCreate(EvaluationRubricBase):
 
 class EvaluationRubricUpdate(BaseModel):
     """Schema for updating an evaluation rubric"""
-    name: Optional[str] = Field(None, min_length=1, max_length=200)
-    description: Optional[str] = None
-    criteria: Optional[List[RubricCriterion]] = None
+    name: Optional[str] = Field(
+        None, 
+        min_length=1, 
+        max_length=200,
+        description="Updated name for the evaluation rubric"
+    )
+    description: Optional[str] = Field(
+        None,
+        description="Updated description of the rubric's purpose and use"
+    )
+    criteria: Optional[List[RubricCriterion]] = Field(
+        None,
+        description="Updated list of evaluation criteria (if provided, must have valid weights summing to 1.0)"
+    )
     
     @validator('criteria')
     def validate_total_weight_if_provided(cls, v):
         """Ensure criteria weights sum to 1.0 if criteria are provided"""
         if v is not None:
+            if len(v) == 0:
+                raise ValueError('If updating criteria, at least one criterion must be provided')
+                
             total_weight = sum(criterion.weight for criterion in v)
+            
+            # Allow small floating point differences (0.001 tolerance)
             if abs(total_weight - 1.0) > 0.001:
-                raise ValueError(f'Criteria weights must sum to 1.0, got {total_weight}')
+                # Provide helpful error message with current sum and guidance
+                criteria_info = [f"{c.name}: {c.weight}" for c in v]
+                raise ValueError(
+                    f'When updating criteria, weights must sum to exactly 1.0, but your weights sum to {total_weight:.3f}. '
+                    f'Current weights: {{", ".join(criteria_info)}}. '
+                    f'Please adjust the weights so they total 1.0 (100% of the evaluation).'
+                )
         return v
 
 

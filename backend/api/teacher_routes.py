@@ -10,8 +10,10 @@ from typing import Dict, Any, List
 from ..services import get_db
 from ..services.client_service import client_service
 from ..services.rubric_service import rubric_service
+from ..services.section_service import section_service
 from ..models.client_profile import ClientProfile, ClientProfileCreate, ClientProfileUpdate
 from ..models.rubric import EvaluationRubric, EvaluationRubricCreate, EvaluationRubricUpdate
+from ..models.course_section import CourseSection, CourseSectionCreate, CourseSectionUpdate
 
 # Create router instance
 router = APIRouter(
@@ -320,6 +322,235 @@ async def list_rubrics(
     rubrics = rubric_service.get_teacher_rubrics(db, teacher_id)
     
     return rubrics
+
+
+# ==================== SECTION ENDPOINTS ====================
+
+# GET /sections - List all sections for a teacher
+@router.get("/sections", response_model=List[CourseSection])
+async def list_sections(
+    db: Session = Depends(get_db),
+    teacher_id: str = Depends(get_current_teacher)
+):
+    """
+    Get all course sections for the current teacher.
+    
+    Returns:
+        List of course sections created by the teacher
+    """
+    
+    # Get all sections for this teacher
+    sections = section_service.get_teacher_sections(db, teacher_id)
+    
+    return sections
+
+
+# POST /sections - Create a new section
+@router.post("/sections", response_model=CourseSection, status_code=201)
+async def create_section(
+    section_data: CourseSectionCreate,
+    db: Session = Depends(get_db),
+    teacher_id: str = Depends(get_current_teacher)
+):
+    """
+    Create a new course section for the current teacher.
+    
+    Args:
+        section_data: Course section data from request body
+        
+    Returns:
+        Created course section
+        
+    Raises:
+        400: Invalid section data provided
+        500: Server error during creation
+    """
+    
+    try:
+        # Create the section
+        section = section_service.create_section_for_teacher(
+            db,
+            section_data,
+            teacher_id
+        )
+        return section
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid section data: {str(e)}"
+        )
+    except Exception as e:
+        # Log the error in production
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while creating the section"
+        )
+
+
+# GET /sections/{section_id} - Get a specific section
+@router.get("/sections/{section_id}", response_model=CourseSection)
+async def get_section(
+    section_id: str,
+    db: Session = Depends(get_db),
+    teacher_id: str = Depends(get_current_teacher)
+):
+    """
+    Get a specific course section by ID.
+    
+    Only returns the section if it belongs to the current teacher.
+    
+    Args:
+        section_id: The ID of the section to retrieve
+        
+    Returns:
+        Course section if found and belongs to teacher
+        
+    Raises:
+        404: Section not found
+        403: Section exists but belongs to another teacher
+    """
+    
+    # Get the section
+    section = section_service.get(db, section_id)
+    
+    # Check if section exists
+    if not section:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Section with ID '{section_id}' not found"
+        )
+    
+    # Check if section belongs to this teacher
+    if section.teacher_id != teacher_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to access this section"
+        )
+    
+    return section
+
+
+# PUT /sections/{section_id} - Update a section
+@router.put("/sections/{section_id}", response_model=CourseSection)
+async def update_section(
+    section_id: str,
+    section_data: CourseSectionUpdate,
+    db: Session = Depends(get_db),
+    teacher_id: str = Depends(get_current_teacher)
+):
+    """
+    Update a course section's information.
+    
+    Only allows updates if the section belongs to the current teacher.
+    Supports partial updates - only provided fields will be updated.
+    
+    Args:
+        section_id: The ID of the section to update
+        section_data: Updated section data (only provided fields will be updated)
+        
+    Returns:
+        Updated course section
+        
+    Raises:
+        404: Section not found
+        403: Section exists but belongs to another teacher
+        400: Invalid update data
+    """
+    
+    # First check if section exists
+    section = section_service.get(db, section_id)
+    if not section:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Section with ID '{section_id}' not found"
+        )
+    
+    # Then check permissions using the service method
+    if not section_service.can_update(db, section_id, teacher_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to update this section"
+        )
+    
+    # Validate update data
+    update_data = section_data.model_dump(exclude_unset=True)
+    if not update_data:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No valid fields provided for update"
+        )
+    
+    # Update the section
+    try:
+        updated_section = section_service.update(
+            db,
+            section_id,
+            **update_data
+        )
+        return updated_section
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+
+# DELETE /sections/{section_id} - Delete a section
+@router.delete("/sections/{section_id}", status_code=204)
+async def delete_section(
+    section_id: str,
+    db: Session = Depends(get_db),
+    teacher_id: str = Depends(get_current_teacher)
+):
+    """
+    Delete a course section.
+    
+    Only allows deletion if the section belongs to the current teacher.
+    Note: This will cascade delete all enrollments in the section.
+    
+    Args:
+        section_id: The ID of the section to delete
+        
+    Returns:
+        No content (204) on successful deletion
+        
+    Raises:
+        404: Section not found
+        403: Section exists but belongs to another teacher
+    """
+    
+    # First check if section exists
+    section = section_service.get(db, section_id)
+    if not section:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Section with ID '{section_id}' not found"
+        )
+    
+    # Then check permissions using the service method
+    if not section_service.can_delete(db, section_id, teacher_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to delete this section"
+        )
+    
+    # Delete the section
+    try:
+        success = section_service.delete(db, section_id)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to delete section"
+            )
+    except Exception as e:
+        # Log the error in production
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while deleting the section"
+        )
+    
+    # Return 204 No Content on successful deletion
+    return None
 
 
 # DELETE /rubrics/{rubric_id} - Delete a rubric

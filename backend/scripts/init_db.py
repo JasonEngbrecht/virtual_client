@@ -114,7 +114,9 @@ def verify_database(db_path: str = None) -> bool:
             'client_profiles',
             'evaluation_rubrics',
             'sessions',
-            'evaluations'
+            'evaluations',
+            'course_sections',
+            'section_enrollments'
         }
         
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")

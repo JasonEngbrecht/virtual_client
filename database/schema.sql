@@ -73,3 +73,35 @@ CREATE INDEX IF NOT EXISTS idx_evaluations_student ON evaluations(student_id);
 CREATE INDEX IF NOT EXISTS idx_evaluations_session ON evaluations(session_id);
 CREATE INDEX IF NOT EXISTS idx_client_profiles_creator ON client_profiles(created_by);
 CREATE INDEX IF NOT EXISTS idx_rubrics_creator ON evaluation_rubrics(created_by);
+
+-- Course Sections Table
+CREATE TABLE IF NOT EXISTS course_sections (
+    id TEXT PRIMARY KEY,
+    teacher_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    course_code TEXT,
+    term TEXT,
+    is_active BOOLEAN DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    settings TEXT DEFAULT '{}' -- JSON object for section settings
+);
+
+-- Section Enrollments Table
+CREATE TABLE IF NOT EXISTS section_enrollments (
+    id TEXT PRIMARY KEY,
+    section_id TEXT NOT NULL,
+    student_id TEXT NOT NULL,
+    enrolled_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_active BOOLEAN DEFAULT 1,  -- For soft delete
+    role TEXT DEFAULT 'student',  -- student or ta
+    FOREIGN KEY (section_id) REFERENCES course_sections(id) ON DELETE CASCADE,
+    UNIQUE(section_id, student_id)  -- Prevent duplicate enrollments
+);
+
+-- Indexes for course sections
+CREATE INDEX IF NOT EXISTS idx_sections_teacher ON course_sections(teacher_id);
+CREATE INDEX IF NOT EXISTS idx_sections_active ON course_sections(is_active);
+CREATE INDEX IF NOT EXISTS idx_enrollments_section ON section_enrollments(section_id);
+CREATE INDEX IF NOT EXISTS idx_enrollments_student ON section_enrollments(student_id);
+CREATE INDEX IF NOT EXISTS idx_enrollments_active ON section_enrollments(is_active);

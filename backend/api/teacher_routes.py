@@ -11,9 +11,10 @@ from ..services import get_db
 from ..services.client_service import client_service
 from ..services.rubric_service import rubric_service
 from ..services.section_service import section_service
+from ..services.enrollment_service import enrollment_service
 from ..models.client_profile import ClientProfile, ClientProfileCreate, ClientProfileUpdate
 from ..models.rubric import EvaluationRubric, EvaluationRubricCreate, EvaluationRubricUpdate
-from ..models.course_section import CourseSection, CourseSectionCreate, CourseSectionUpdate
+from ..models.course_section import CourseSection, CourseSectionCreate, CourseSectionUpdate, SectionEnrollment, SectionEnrollmentCreate
 
 # Create router instance
 router = APIRouter(
@@ -322,6 +323,166 @@ async def list_rubrics(
     rubrics = rubric_service.get_teacher_rubrics(db, teacher_id)
     
     return rubrics
+
+
+# ==================== ENROLLMENT ENDPOINTS ====================
+
+# GET /sections/{section_id}/roster - View enrolled students
+@router.get("/sections/{section_id}/roster", response_model=List[SectionEnrollment])
+async def get_section_roster(
+    section_id: str,
+    db: Session = Depends(get_db),
+    teacher_id: str = Depends(get_current_teacher)
+):
+    """
+    Get the roster of enrolled students for a course section.
+    
+    Only returns the roster if the section belongs to the current teacher.
+    
+    Args:
+        section_id: The ID of the section to get roster for
+        
+    Returns:
+        List of active enrollments in the section
+        
+    Raises:
+        404: Section not found
+        403: Section exists but belongs to another teacher
+    """
+    
+    # First check if section exists
+    section = section_service.get(db, section_id)
+    if not section:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Section with ID '{section_id}' not found"
+        )
+    
+    # Check if section belongs to this teacher
+    if section.teacher_id != teacher_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to view this section's roster"
+        )
+    
+    # Get the roster (active enrollments only)
+    enrollments = enrollment_service.get_section_roster(db, section_id, include_inactive=False)
+    
+    return enrollments
+
+
+# POST /sections/{section_id}/enroll - Enroll a student
+@router.post("/sections/{section_id}/enroll", response_model=SectionEnrollment, status_code=201)
+async def enroll_student(
+    section_id: str,
+    enrollment_data: SectionEnrollmentCreate,
+    db: Session = Depends(get_db),
+    teacher_id: str = Depends(get_current_teacher)
+):
+    """
+    Enroll a student in a course section.
+    
+    Only allows enrollment if the section belongs to the current teacher.
+    If the student was previously enrolled and unenrolled, this will reactivate
+    their enrollment.
+    
+    Args:
+        section_id: The ID of the section to enroll student in
+        enrollment_data: Student ID and role information
+        
+    Returns:
+        Created or reactivated enrollment record
+        
+    Raises:
+        404: Section not found
+        403: Section exists but belongs to another teacher
+        400: Invalid enrollment data or section doesn't exist
+    """
+    
+    # First check if section exists
+    section = section_service.get(db, section_id)
+    if not section:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Section with ID '{section_id}' not found"
+        )
+    
+    # Check if section belongs to this teacher
+    if section.teacher_id != teacher_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to manage enrollments for this section"
+        )
+    
+    # Enroll the student
+    enrollment = enrollment_service.enroll_student(
+        db,
+        section_id=section_id,
+        student_id=enrollment_data.student_id,
+        role=enrollment_data.role
+    )
+    
+    if not enrollment:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Failed to enroll student. Please verify the student ID and try again."
+        )
+    
+    return enrollment
+
+
+# DELETE /sections/{section_id}/enroll/{student_id} - Unenroll a student
+@router.delete("/sections/{section_id}/enroll/{student_id}", status_code=204)
+async def unenroll_student(
+    section_id: str,
+    student_id: str,
+    db: Session = Depends(get_db),
+    teacher_id: str = Depends(get_current_teacher)
+):
+    """
+    Unenroll a student from a course section.
+    
+    Only allows unenrollment if the section belongs to the current teacher.
+    Uses soft delete to preserve enrollment history.
+    
+    Args:
+        section_id: The ID of the section
+        student_id: The ID of the student to unenroll
+        
+    Returns:
+        No content (204) on successful unenrollment
+        
+    Raises:
+        404: Section not found or student not enrolled
+        403: Section exists but belongs to another teacher
+    """
+    
+    # First check if section exists
+    section = section_service.get(db, section_id)
+    if not section:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Section with ID '{section_id}' not found"
+        )
+    
+    # Check if section belongs to this teacher
+    if section.teacher_id != teacher_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to manage enrollments for this section"
+        )
+    
+    # Unenroll the student
+    success = enrollment_service.unenroll_student(db, section_id, student_id)
+    
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Student '{student_id}' is not actively enrolled in this section"
+        )
+    
+    # Return 204 No Content on successful unenrollment
+    return None
 
 
 # ==================== SECTION ENDPOINTS ====================

@@ -16,7 +16,17 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from backend.services.database import Base, DatabaseService
-from backend.models import ClientProfileDB, EvaluationRubricDB, SessionDB, EvaluationDB
+# Import all models to ensure they're registered with Base.metadata
+from backend.models import (
+    ClientProfileDB, 
+    EvaluationRubricDB, 
+    SessionDB, 
+    EvaluationDB,
+    CourseSectionDB,
+    SectionEnrollmentDB
+)
+# Also import from individual modules to ensure registration
+from backend.models.course_section import CourseSectionDB, SectionEnrollmentDB
 
 
 # Test database URL - use in-memory SQLite for speed
@@ -65,7 +75,7 @@ def db_session(test_db_service) -> Generator[Session, None, None]:
 @pytest.fixture
 def sample_teacher_id():
     """Sample teacher ID for testing"""
-    return "test-teacher-123"
+    return "teacher-123"  # Must match the mock authentication
 
 
 @pytest.fixture

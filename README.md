@@ -1,11 +1,21 @@
 # Virtual Client - Social Work Training App
 
-**Status:** In Development | **Phase:** 1.4 Part 4 Complete ✅ | **Next:** Phase 1.4 Part 5 - Enrollment Management Endpoints
+**Status:** In Development | **Phase:** 1.4 Part 5 Complete ✅ | **Next:** Phase 1.4 Part 6 - Student Section Access
 
 This project will create a virtual client that social work (and other areas) can interface with to practice working with clients.
 
 ## 🌟 Latest Achievement
-**Phase 1.4 Part 4 COMPLETE** ✅ - Enrollment Service Layer:
+**Phase 1.4 Part 5 COMPLETE** ✅ - Enrollment Management Endpoints:
+- ✅ **Part 5**: Implemented teacher endpoints for enrollment management
+  - GET /api/teacher/sections/{id}/roster - View enrolled students
+  - POST /api/teacher/sections/{id}/enroll - Enroll a student
+  - DELETE /api/teacher/sections/{id}/enroll/{student_id} - Unenroll (soft delete)
+  - Teacher isolation enforced on all operations
+  - Comprehensive error handling (404, 403, 400, 422)
+  - 15 integration tests all passing
+  - Follows established patterns from previous endpoints
+
+**Previous Achievement:** Phase 1.4 Part 4 COMPLETE - Enrollment Service Layer:
 - ✅ **Part 4**: Implemented comprehensive enrollment management service
   - `enroll_student()` - Enrolls students with duplicate prevention and reactivation
   - `unenroll_student()` - Soft delete preserving enrollment history
@@ -67,9 +77,9 @@ This project will create a virtual client that social work (and other areas) can
 - ✅ Part 2: Section Service (30 minutes)
 - ✅ Part 3: Section CRUD Endpoints (45 minutes)
 - ✅ Part 4: Enrollment Service Layer (45 minutes)
-- Total Phase 1.4 time so far: 145 minutes (~2.4 hours)
+- Total Phase 1.4 time so far: 235 minutes (~3.9 hours)
 
-**Next:** Phase 1.4 Part 5 - Enrollment Management Endpoints
+**Next:** Phase 1.4 Part 6 - Student Section Access
 
 ## Project Overview
 
@@ -435,7 +445,7 @@ virtual_client/
   - [x] Part 2: Basic Section Service ✅ (30 min)
   - [x] Part 3: Section CRUD Endpoints ✅ (45 min)
   - [x] Part 4: Enrollment Service Layer ✅ (45 min)
-  - [ ] Part 5: Enrollment Management Endpoints (45-60 min)
+  - ✅ Part 5: Enrollment Management Endpoints ✅ (45 min)
   - [ ] Part 6: Student Section Access (30-45 min)
   - [ ] Part 7: Section Summary and Statistics (30-40 min)
   - [ ] Part 8: Comprehensive Testing & Documentation (45-60 min)
@@ -536,7 +546,7 @@ API Route (FastAPI) → Service Layer → Database Layer (SQLAlchemy) → SQLite
 - Phase 1.6 (Session Management): 4-5 hours
 - Phase 1.7 (Evaluation System): 3-4 hours
 - **Total Estimated Time**: 23-28 hours
-- **Time Completed So Far**: ~11.65 hours
+- **Time Completed So Far**: ~12.4 hours
 
 ## Key Technical Decisions
 
@@ -762,32 +772,31 @@ Course sections form the organizational foundation for the entire system. They e
 ## Current Project Status
 
 **Last Updated:** May 25, 2025
-**Current Focus:** Phase 1.4 Part 4 Complete - Ready for Part 5 (Enrollment Management Endpoints)
+**Current Focus:** Phase 1.4 Part 5 Complete - Ready for Part 6 (Student Section Access)
 
-### ✅ Phase 1.4 Part 3 Complete - Section CRUD Endpoints
+### ✅ Phase 1.4 Part 5 Complete - Enrollment Management Endpoints
 
-#### What Was Accomplished in Part 3
+#### What Was Accomplished in Part 5
 
 **API Endpoints Implemented**
-- Added 5 CRUD endpoints to `backend/api/teacher_routes.py`
-- GET /api/teacher/sections - List sections for authenticated teacher
-- POST /api/teacher/sections - Create new section with teacher assignment
-- GET /api/teacher/sections/{id} - Get specific section with permission check
-- PUT /api/teacher/sections/{id} - Update section (partial updates supported)
-- DELETE /api/teacher/sections/{id} - Delete section (cascades to enrollments)
+- Added 3 enrollment management endpoints to `backend/api/teacher_routes.py`
+- GET /api/teacher/sections/{id}/roster - View active enrollments in section
+- POST /api/teacher/sections/{id}/enroll - Enroll student (handles reactivation)
+- DELETE /api/teacher/sections/{id}/enroll/{student_id} - Soft delete enrollment
 
 **Key Features**
-- Teacher isolation enforced on all operations
-- Permission checks using service methods (can_update, can_delete)
-- Comprehensive error handling (404, 403, 400, 422)
-- Follows established patterns from client and rubric endpoints
-- Cascade delete removes related enrollments
+- Uses enrollment_service for all business logic
+- Teacher can only manage enrollments for own sections
+- Soft delete preserves enrollment history
+- Handles re-enrollment by reactivating existing records
+- Comprehensive error handling with user-friendly messages
 
 **Testing**
-- Created `tests/integration/test_section_api.py` with 18 test cases
+- Created `tests/integration/test_enrollment_api.py` with 15 test cases
+- Created `tests/integration/conftest.py` with enrollment fixtures
 - All integration tests passing
-- Tests cover CRUD operations, error cases, and permissions
-- Created manual test scripts for verification
+- Tests cover enrollment lifecycle, permissions, and edge cases
+- Manual test script verifies all functionality
 
 **Time Taken**: 45 minutes (within estimate)
 
@@ -1023,7 +1032,7 @@ The current implementation is production-ready with these considerations:
   - Comprehensive test suite verifying all functionality
 
 ### 🔄 In Progress
-- **Phase 1.4: Course Section Management** (Parts 1-4 Complete)
+- **Phase 1.4: Course Section Management** (Parts 1-5 Complete)
   - ✅ Part 1: Database Models and Schema (25 min)
     - Created CourseSectionDB and SectionEnrollmentDB models
     - All 15 unit tests passing
@@ -1041,7 +1050,12 @@ The current implementation is production-ready with these considerations:
     - Soft delete pattern for enrollment history
     - 20 unit tests with full coverage
     - Business rules enforced
-  - Ready for Part 5: Enrollment Management Endpoints
+  - ✅ Part 5: Enrollment Management Endpoints (45 min)
+    - All 3 enrollment endpoints implemented
+    - Teacher can view roster, enroll, and unenroll students
+    - Fixed typo bug in unenroll endpoint
+    - Manual tests all passing
+  - Ready for Part 6: Student Section Access
 
 ### 📝 Key Documentation Files
 - `README.md` - Main project documentation (includes Phase 1.2 complete details)
@@ -1118,6 +1132,12 @@ python test_enrollment_service.py
 
 # Quick enrollment unit tests
 python test_enrollment_unit.py
+
+# Test enrollment API endpoints - ALL WORKING ✅
+python test_enrollment_endpoints.py
+
+# Run enrollment integration tests
+python test_enrollment_integration.py
 ```
 
 **Check API Documentation:**
@@ -1128,8 +1148,11 @@ python test_enrollment_unit.py
   - `/api/teacher/clients/{id}` (GET, PUT, DELETE)
   - `/api/teacher/rubrics` (GET, POST)
   - `/api/teacher/rubrics/{id}` (GET, PUT, DELETE)
-  - `/api/teacher/sections` (GET, POST) ✅ NEW
-  - `/api/teacher/sections/{id}` (GET, PUT, DELETE) ✅ NEW
+  - `/api/teacher/sections` (GET, POST) ✅
+  - `/api/teacher/sections/{id}` (GET, PUT, DELETE) ✅
+  - `/api/teacher/sections/{id}/roster` (GET) ✅ NEW
+  - `/api/teacher/sections/{id}/enroll` (POST) ✅ NEW
+  - `/api/teacher/sections/{id}/enroll/{student_id}` (DELETE) ✅ NEW
 
 ## Development Environment Setup
 

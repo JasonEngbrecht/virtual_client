@@ -3,21 +3,18 @@ Pytest configuration for integration tests
 """
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 from uuid import uuid4
-
-from backend.app import app
-from backend.models.course_section import CourseSectionDB, SectionEnrollmentDB
-from backend.api.teacher_routes import get_current_teacher
 
 
 @pytest.fixture
 def client(db_session):
     """Create a test client for the FastAPI app"""
-    # Override the database dependency
+    # Import here to avoid import order issues
+    from fastapi.testclient import TestClient
+    from backend.app import app
     from backend.services import get_db
     
+    # Override the database dependency
     def override_get_db():
         try:
             yield db_session
@@ -36,6 +33,10 @@ def client(db_session):
 @pytest.fixture
 def mock_teacher_auth(client):
     """Mock teacher authentication for tests"""
+    # Import here to avoid import order issues
+    from backend.app import app
+    from backend.api.teacher_routes import get_current_teacher
+    
     # Override the authentication dependency
     def override_get_current_teacher():
         return "teacher-123"
@@ -46,8 +47,11 @@ def mock_teacher_auth(client):
 
 
 @pytest.fixture
-def test_section(db_session) -> CourseSectionDB:
+def test_section(db_session):
     """Create a test course section"""
+    # Import here to avoid import order issues
+    from backend.models.course_section import CourseSectionDB
+    
     section = CourseSectionDB(
         id=str(uuid4()),
         teacher_id="teacher-123",  # Match the mock authentication
@@ -65,8 +69,11 @@ def test_section(db_session) -> CourseSectionDB:
 
 
 @pytest.fixture
-def test_section_other_teacher(db_session) -> CourseSectionDB:
+def test_section_other_teacher(db_session):
     """Create a test course section for another teacher"""
+    # Import here to avoid import order issues
+    from backend.models.course_section import CourseSectionDB
+    
     section = CourseSectionDB(
         id=str(uuid4()),
         teacher_id="other-teacher-456",  # Different teacher
@@ -84,8 +91,11 @@ def test_section_other_teacher(db_session) -> CourseSectionDB:
 
 
 @pytest.fixture
-def test_enrollment(db_session, test_section) -> SectionEnrollmentDB:
+def test_enrollment(db_session, test_section):
     """Create a test enrollment"""
+    # Import here to avoid import order issues
+    from backend.models.course_section import SectionEnrollmentDB
+    
     enrollment = SectionEnrollmentDB(
         id=str(uuid4()),
         section_id=test_section.id,
@@ -100,8 +110,11 @@ def test_enrollment(db_session, test_section) -> SectionEnrollmentDB:
 
 
 @pytest.fixture
-def test_inactive_enrollment(db_session, test_section) -> SectionEnrollmentDB:
+def test_inactive_enrollment(db_session, test_section):
     """Create a test inactive enrollment (soft deleted)"""
+    # Import here to avoid import order issues
+    from backend.models.course_section import SectionEnrollmentDB
+    
     enrollment = SectionEnrollmentDB(
         id=str(uuid4()),
         section_id=test_section.id,

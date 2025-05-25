@@ -21,7 +21,8 @@ def run_tests(test_path=None, markers=None, verbose=False):
         markers: Test markers to filter (e.g., 'unit', 'integration')
         verbose: Show verbose output
     """
-    cmd = ["python", "-m", "pytest"]
+    # Use sys.executable to ensure we use the same Python interpreter
+    cmd = [sys.executable, "-m", "pytest"]
     
     # Add test path if specified
     if test_path:

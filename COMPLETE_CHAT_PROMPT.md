@@ -24,6 +24,12 @@ Based on what was accomplished:
 - [ ] Ensure proper categorization
 - [ ] Check size (split at 800 lines per DOCUMENTATION_STANDARDS.md)
 
+**tests/TESTING_GUIDE.md** (if test issues or learnings):
+- [ ] Add any new test patterns discovered
+- [ ] Update troubleshooting section if new issues found
+- [ ] Add new fixtures if created
+- [ ] Update best practices if learned something new
+
 **PROJECT_ROADMAP.md** (if phase part complete):
 - [ ] Update progress percentages
 - [ ] Add actual time for completed parts
@@ -74,6 +80,7 @@ After implementation, ask yourself:
 3. Did I discover anything unexpected? → Note in CURRENT_SPRINT.md
 4. Are all tests documented? → Update testing section in CURRENT_SPRINT.md
 5. Did I create new files? → Update .claude-context.md if needed
+6. Did I learn anything new about testing? → Update tests/TESTING_GUIDE.md
 
 ## 🧪 Test Results Documentation
 Ensure CURRENT_SPRINT.md includes:

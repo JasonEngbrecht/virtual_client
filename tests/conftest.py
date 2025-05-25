@@ -7,6 +7,7 @@ import asyncio
 from typing import Generator
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.pool import StaticPool
 from pathlib import Path
 import tempfile
 import os
@@ -15,17 +16,15 @@ import os
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from backend.services.database import Base, DatabaseService
+# Import Base before any models
+from backend.services.database import Base, db_service
+
 # Import all models to ensure they're registered with Base.metadata
-from backend.models import (
-    ClientProfileDB, 
-    EvaluationRubricDB, 
-    SessionDB, 
-    EvaluationDB,
-    CourseSectionDB,
-    SectionEnrollmentDB
-)
-# Also import from individual modules to ensure registration
+# This MUST happen before create_all is called
+from backend.models.client_profile import ClientProfileDB
+from backend.models.evaluation import EvaluationDB
+from backend.models.rubric import EvaluationRubricDB
+from backend.models.session import SessionDB
 from backend.models.course_section import CourseSectionDB, SectionEnrollmentDB
 
 
@@ -42,34 +41,46 @@ def event_loop():
 
 
 @pytest.fixture(scope="function")
-def test_db_service():
-    """Create a test database service"""
-    # For file-based testing if needed
-    # with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
-    #     test_db_path = tmp.name
-    # db_service = DatabaseService(f"sqlite:///{test_db_path}")
+def db_session() -> Generator[Session, None, None]:
+    """Create a test database session with fresh tables"""
+    # Create in-memory test engine with StaticPool for proper cleanup
+    engine = create_engine(
+        TEST_DATABASE_URL,
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,  # Use StaticPool for in-memory databases
+        echo=False  # Set to True for SQL debugging
+    )
     
-    # In-memory database for faster tests
-    db_service = DatabaseService(TEST_DATABASE_URL)
+    # Create session factory
+    TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     
-    # Create all tables
-    Base.metadata.create_all(bind=db_service.engine)
+    # Create all tables - models must be imported before this!
+    Base.metadata.create_all(bind=engine)
     
-    yield db_service
+    # Create session
+    session = TestSessionLocal()
     
-    # Cleanup
-    Base.metadata.drop_all(bind=db_service.engine)
+    # Override the global db_service to use our test database
+    # This ensures all services use the test database
+    original_engine = db_service.engine
+    original_session_local = db_service.SessionLocal
+    db_service.engine = engine
+    db_service.SessionLocal = TestSessionLocal
     
-    # If using file-based database
-    # if os.path.exists(test_db_path):
-    #     os.unlink(test_db_path)
-
-
-@pytest.fixture(scope="function")
-def db_session(test_db_service) -> Generator[Session, None, None]:
-    """Create a test database session"""
-    with test_db_service.get_db() as session:
+    try:
         yield session
+        session.commit()  # Commit any pending transactions
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+        # Restore original database service
+        db_service.engine = original_engine
+        db_service.SessionLocal = original_session_local
+        # Drop all tables and dispose of engine
+        Base.metadata.drop_all(bind=engine)
+        engine.dispose()
 
 
 @pytest.fixture

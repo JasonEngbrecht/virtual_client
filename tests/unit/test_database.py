@@ -6,22 +6,23 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
-from backend.services.database import DatabaseService, BaseCRUD
+from backend.services.database import DatabaseService, BaseCRUD, db_service
 from backend.models import ClientProfileDB, ClientProfile, ClientProfileCreate
 
 
 class TestDatabaseService:
     """Test database service functionality"""
     
-    def test_database_service_initialization(self, test_db_service):
+    def test_database_service_initialization(self):
         """Test that database service initializes correctly"""
-        assert test_db_service is not None
-        assert test_db_service.engine is not None
-        assert test_db_service.SessionLocal is not None
+        # Use the global db_service instance
+        assert db_service is not None
+        assert db_service.engine is not None
+        assert db_service.SessionLocal is not None
     
-    def test_get_db_context_manager(self, test_db_service):
+    def test_get_db_context_manager(self):
         """Test database session context manager"""
-        with test_db_service.get_db() as session:
+        with db_service.get_db() as session:
             assert session is not None
             # Session should be active
             assert session.is_active
@@ -37,7 +38,9 @@ class TestDatabaseService:
             'client_profiles',
             'evaluation_rubrics',
             'sessions',
-            'evaluations'
+            'evaluations',
+            'course_sections',
+            'section_enrollments'
         }
         
         for table in expected_tables:
@@ -48,9 +51,10 @@ class TestBaseCRUD:
     """Test base CRUD operations"""
     
     @pytest.fixture
-    def client_crud(self, test_db_service):
+    def client_crud(self):
         """Create a CRUD instance for ClientProfile"""
-        return BaseCRUD(ClientProfileDB, test_db_service.database_url)
+        # Use in-memory database for tests
+        return BaseCRUD(ClientProfileDB, "sqlite:///:memory:")
     
     def test_create(self, db_session, client_crud, sample_teacher_id):
         """Test creating a record"""

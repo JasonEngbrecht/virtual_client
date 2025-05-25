@@ -5,6 +5,14 @@ Pytest configuration for integration tests
 import pytest
 from uuid import uuid4
 
+# Import all models at module level to ensure they're registered with SQLAlchemy
+# This must happen before any database operations
+from backend.models.client_profile import ClientProfileDB
+from backend.models.evaluation import EvaluationDB
+from backend.models.rubric import EvaluationRubricDB
+from backend.models.session import SessionDB
+from backend.models.course_section import CourseSectionDB, SectionEnrollmentDB
+
 
 @pytest.fixture
 def client(db_session):

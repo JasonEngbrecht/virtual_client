@@ -1,21 +1,71 @@
-# Testing Guide for PyCharm
+# Testing Guide for Virtual Client
+
+## Table of Contents
+1. [Quick Start](#quick-start)
+2. [Test Organization](#test-organization)
+3. [Running Tests](#running-tests)
+4. [Writing Tests](#writing-tests)
+5. [Available Fixtures](#available-fixtures)
+6. [Test Patterns](#test-patterns)
+7. [Common Issues](#common-issues)
+8. [Debugging Tests](#debugging-tests)
 
 ## Quick Start
 
-All tests should now pass! The issues have been fixed:
-- ✅ SQLAlchemy text() wrapper added for raw SQL queries
-- ✅ pytest-asyncio warning resolved with configuration
+All tests should pass with the following commands:
 
-## Running Tests in PyCharm
+```bash
+# Run all tests
+python run_tests.py
 
-### Using Run Configurations (Recommended)
-After restarting PyCharm or reloading the project, you'll see new run configurations in the dropdown:
+# Run specific test file
+python -m pytest tests/unit/test_database.py -v
+
+# Run specific test
+python -m pytest tests/unit/test_database.py::TestDatabaseService::test_database_service_initialization -v
+
+# Run tests with coverage
+python run_tests.py --cov=backend --cov-report=term-missing
+```
+
+**Current Test Status** (as of Phase 1.4 Part 7):
+- ✅ Unit tests: 73/73 passing
+- ✅ Integration tests: 144/150 passing
+- ❌ Section Stats API: 6 failing (not implemented yet - this is expected)
+
+## Test Organization
+
+```
+tests/
+├── conftest.py                      # Shared fixtures and configuration
+├── TESTING_GUIDE.md                 # This file
+├── TEST_FIXES.md                    # Historical fixes reference
+├── unit/                            # Unit tests (isolated components)
+│   ├── test_client_service.py       # Client profile service tests
+│   ├── test_course_section.py       # Course section model tests
+│   ├── test_database.py             # Database and CRUD tests
+│   ├── test_enrollment_service.py   # Enrollment service tests
+│   ├── test_rubric_service.py       # Rubric service tests
+│   └── test_section_service.py      # Section service tests
+└── integration/                     # Integration tests (API endpoints)
+    ├── conftest.py                  # Integration-specific fixtures
+    ├── test_enrollment_api.py       # Enrollment endpoints
+    ├── test_rubric_api.py           # Rubric endpoints
+    ├── test_section_api.py          # Section endpoints
+    ├── test_section_stats_api.py    # Section statistics endpoints
+    └── test_student_section_api.py  # Student-specific endpoints
+```
+
+## Running Tests
+
+### Using PyCharm Run Configurations
+The project includes pre-configured run configurations:
 - **All Tests** - Runs all tests in the project
 - **Database Tests** - Runs only database-related tests
 - **Initialize Database** - Creates the database
 - **Initialize Database with Sample Data** - Creates database with test data
 
-### Using the UI
+### Using PyCharm UI
 1. **Run all tests**: Right-click on `tests` folder → Run 'pytest in tests'
 2. **Run specific test file**: Click green arrow next to test class/function
 3. **Run with coverage**: Right-click → Run 'pytest in tests' with Coverage
@@ -25,59 +75,339 @@ After restarting PyCharm or reloading the project, you'll see new run configurat
 # Run all tests
 python run_tests.py
 
-# Run database tests only
-python run_tests.py tests/unit/test_database.py
+# Run specific test suite
+python -m pytest tests/integration/test_enrollment_api.py -v
 
-# Run with verbose output
-python run_tests.py -v
+# Run with markers
+python -m pytest -m "not slow" -v
 
-# Run specific test
-python -m pytest tests/unit/test_database.py::TestDatabaseService::test_tables_created -v
+# Run with coverage
+python run_tests.py --cov=backend --cov-report=html
+
+# Run tests in parallel (if pytest-xdist is installed)
+python -m pytest -n auto
 ```
 
-## Test Organization
+### Useful Test Commands
+```bash
+# Show available fixtures
+python -m pytest --fixtures
 
+# Run failed tests from last run
+python -m pytest --lf
+
+# Run tests that match a pattern
+python -m pytest -k "test_enroll"
+
+# Show test durations
+python -m pytest --durations=10
 ```
-tests/
-├── conftest.py          # Shared fixtures and configuration
-├── unit/                # Unit tests (isolated components)
-│   └── test_database.py # Database and CRUD tests
-└── integration/         # Integration tests (coming soon)
+
+## Writing Tests
+
+### Test Structure
+
+#### Unit Tests
+Unit tests should test individual components in isolation using mocks:
+
+```python
+"""
+Unit tests for [Component Name]
+"""
+import pytest
+from unittest.mock import MagicMock, patch
+from backend.services.some_service import SomeService
+
+class TestSomeService:
+    """Test cases for SomeService class"""
+    
+    def test_service_method(self):
+        """Test that service method works correctly"""
+        # Arrange
+        service = SomeService()
+        mock_db = MagicMock()
+        
+        # Act
+        result = service.method(mock_db, param1, param2)
+        
+        # Assert
+        assert result.field == expected_value
 ```
 
-## Key Fixtures Available
+#### Integration Tests
+Integration tests should test API endpoints with real database:
 
-- `test_db_service` - Test database service instance
-- `db_session` - Database session for tests
-- `sample_teacher_id` - Test teacher ID
-- `sample_student_id` - Test student ID
-- `sample_client_profile` - Pre-created client profile
-- `sample_rubric` - Pre-created evaluation rubric
-- `sample_session` - Pre-created session
+```python
+"""
+Integration tests for [Feature] API endpoints
+"""
+import pytest
+from fastapi.testclient import TestClient
 
-## Debugging Tests in PyCharm
+class TestFeatureAPI:
+    """Test [feature] endpoints"""
+    
+    def test_endpoint_success(self, client, mock_teacher_auth, db_session):
+        """Test successful API call"""
+        # Arrange
+        data = {"field": "value"}
+        
+        # Act
+        response = client.post("/api/endpoint", json=data)
+        
+        # Assert
+        assert response.status_code == 201
+        result = response.json()
+        assert result["field"] == "value"
+```
 
-1. Set breakpoints by clicking in the gutter
-2. Right-click test → Debug 'pytest...'
-3. Use the debugger panel to step through code
+### Test Naming Conventions
+- Test files: `test_*.py`
+- Test classes: `Test*` (e.g., `TestSectionService`)
+- Test methods: `test_*` (e.g., `test_create_section_success`)
+- Use descriptive names that explain what is being tested
 
-## Coverage Reports
+### Test Documentation
+- Each test module should have a docstring explaining what it tests
+- Each test class should have a docstring describing the component being tested
+- Each test method should have a docstring explaining the specific scenario
 
-After running tests with coverage:
-1. View → Tool Windows → Coverage
-2. See line-by-line coverage in editor (green/red bars)
-3. HTML report: `htmlcov/index.html`
+## Available Fixtures
+
+### Global Fixtures (tests/conftest.py)
+
+#### Database Fixtures
+- `db_session` - Fresh database session for each test
+- `event_loop` - Async event loop for async tests
+
+#### Sample Data Fixtures
+- `sample_teacher_id` - Returns "teacher-123"
+- `sample_student_id` - Returns "test-student-456"
+- `sample_client_profile` - Creates a ClientProfileDB instance
+- `sample_rubric` - Creates an EvaluationRubricDB instance
+- `sample_session` - Creates a SessionDB instance
+- `mock_llm_response` - Mock LLM response for testing
+
+### Integration Fixtures (tests/integration/conftest.py)
+
+#### Client and Auth Fixtures
+- `client` - FastAPI test client with database override
+- `mock_teacher_auth` - Mocks teacher authentication (teacher-123)
+
+#### Test Data Fixtures
+- `test_section` - Creates a course section for teacher-123
+- `test_section_other_teacher` - Creates a section for another teacher
+- `test_enrollment` - Creates an active enrollment
+- `test_inactive_enrollment` - Creates an inactive enrollment
+
+## Test Patterns
+
+### 1. Database Test Pattern
+Tests use an in-memory SQLite database that is created fresh for each test:
+
+```python
+def test_with_database(self, db_session):
+    """Test that uses database"""
+    # Database is fresh and empty
+    # All models are available
+    # Changes are isolated to this test
+```
+
+### 2. API Test Pattern
+Integration tests use the FastAPI test client:
+
+```python
+def test_api_endpoint(self, client, mock_teacher_auth):
+    """Test API endpoint"""
+    response = client.get("/api/endpoint")
+    assert response.status_code == 200
+    data = response.json()
+    # Validate response data
+```
+
+### 3. Error Testing Pattern
+Test both success and error cases:
+
+```python
+def test_not_found(self, client, mock_teacher_auth):
+    """Test 404 response"""
+    response = client.get("/api/resource/nonexistent")
+    assert response.status_code == 404
+    assert "not found" in response.json()["detail"].lower()
+
+def test_forbidden(self, client, mock_teacher_auth, test_section_other_teacher):
+    """Test 403 response"""
+    response = client.get(f"/api/sections/{test_section_other_teacher.id}")
+    assert response.status_code == 403
+    assert "permission" in response.json()["detail"].lower()
+```
+
+### 4. Mock Pattern for Unit Tests
+Use mocks to isolate unit tests:
+
+```python
+def test_service_method(self):
+    """Test service method with mocks"""
+    service = MyService()
+    mock_db = MagicMock(spec=Session)
+    
+    with patch.object(service, 'get', return_value=mock_object):
+        result = service.method(mock_db, param)
+        assert result == expected
+```
 
 ## Common Issues
 
 ### Import Errors
+**Problem**: `ModuleNotFoundError: No module named 'backend'`
+**Solution**: 
 - Ensure virtual environment is activated
-- Check PyCharm interpreter settings
+- Check that backend is in Python path (handled by conftest.py)
+- Verify PyCharm is using the correct interpreter
 
-### Database Errors
-- Tests use in-memory SQLite database
-- Each test gets a fresh database
+### Database Not Found
+**Problem**: Tables not created or "no such table" errors
+**Solution**:
+- Models must be imported before `Base.metadata.create_all()`
+- Check that all models inherit from `Base`
+- Verify model imports in conftest.py
 
-### Async Warnings
-- Already fixed in pytest.ini
-- Set to function scope by default
+### Fixture Not Found
+**Problem**: `fixture 'fixture_name' not found`
+**Solution**:
+- Check fixture is defined in appropriate conftest.py
+- Ensure conftest.py is in the test directory
+- Use `pytest --fixtures` to list available fixtures
+
+### Test Isolation Issues
+**Problem**: Tests fail when run together but pass individually
+**Solution**:
+- Each test should use fresh database (handled by db_session fixture)
+- Don't rely on test execution order
+- Clean up any global state changes
+
+### Async Test Issues
+**Problem**: Warnings about async fixture scope
+**Solution**: Already configured in pytest.ini:
+```ini
+asyncio_default_fixture_loop_scope = function
+```
+
+## Debugging Tests
+
+### PyCharm Debugging
+1. Set breakpoints by clicking in the gutter
+2. Right-click test → Debug 'pytest...'
+3. Use debugger panel to inspect variables
+4. Step through code with F7/F8
+
+### Print Debugging
+```python
+def test_something(self, capsys):
+    """Test with print debugging"""
+    print("Debug info:", variable)
+    # Test code
+    captured = capsys.readouterr()
+    # Can also assert on printed output
+```
+
+### Database Debugging
+```python
+def test_database_state(self, db_session):
+    """Test with SQL debugging"""
+    # Enable SQL echo temporarily
+    db_session.bind.echo = True
+    
+    # Your test code
+    
+    # Check database state
+    result = db_session.execute(text("SELECT * FROM table"))
+    print(result.fetchall())
+```
+
+### Diagnostic Tools
+If tests are failing mysteriously, use diagnostic scripts:
+
+```bash
+# Run comprehensive diagnostics
+python DIAGNOSE_TESTS.py
+
+# Check test infrastructure
+python test_infrastructure_final.py
+```
+
+## Test Coverage
+
+### Viewing Coverage
+After running tests with coverage:
+1. **Terminal**: See summary in console output
+2. **HTML Report**: Open `htmlcov/index.html` in browser
+3. **PyCharm**: View → Tool Windows → Coverage
+
+### Coverage Goals
+- Aim for >80% coverage overall
+- Critical paths should have 100% coverage
+- Don't test:
+  - Simple getters/setters
+  - Framework code
+  - External API calls (mock them instead)
+
+### Improving Coverage
+1. Run coverage report: `python run_tests.py --cov=backend --cov-report=term-missing`
+2. Look for files with low coverage
+3. Add tests for uncovered lines
+4. Focus on business logic and error cases
+
+## Best Practices
+
+1. **Test Independence**: Each test should be able to run in isolation
+2. **Clear Names**: Test names should describe what they test
+3. **Arrange-Act-Assert**: Structure tests clearly
+4. **One Assertion Per Test**: Keep tests focused (multiple related assertions are OK)
+5. **Test Edge Cases**: Empty lists, None values, invalid inputs
+6. **Mock External Dependencies**: Don't make real API calls in tests
+7. **Use Fixtures**: Don't repeat setup code
+8. **Test Error Cases**: Test what happens when things go wrong
+9. **Keep Tests Fast**: Mock slow operations
+10. **Update Tests When Code Changes**: Tests document expected behavior
+
+## Markers
+
+The project uses pytest markers to categorize tests:
+
+```python
+@pytest.mark.slow  # Marks slow tests
+@pytest.mark.integration  # Integration tests
+@pytest.mark.unit  # Unit tests
+```
+
+Run specific categories:
+```bash
+# Skip slow tests
+python -m pytest -m "not slow"
+
+# Run only unit tests
+python -m pytest -m unit
+
+# Run only integration tests
+python -m pytest -m integration
+```
+
+## Continuous Integration
+
+Tests should be run:
+1. Before committing code
+2. In pull requests
+3. Before merging to main
+4. In CI/CD pipeline
+
+## Need Help?
+
+1. Check `TEST_FIXES.md` for historical issues and solutions
+2. Run `DIAGNOSE_TESTS.py` for comprehensive diagnostics
+3. Check test output carefully - pytest provides good error messages
+4. Use `pytest -vv` for verbose output
+5. Enable SQL echo in database tests to see queries
+6. Set breakpoints and use the debugger
+
+Remember: Tests are documentation. They show how the code is supposed to work!

@@ -8,6 +8,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
 
+# Import all models to ensure they're registered with SQLAlchemy
+# This must happen before any database operations
+from .models import (
+    ClientProfileDB,
+    EvaluationRubricDB,
+    SessionDB,
+    EvaluationDB,
+    CourseSectionDB,
+    SectionEnrollmentDB
+)
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,

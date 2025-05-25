@@ -6,10 +6,11 @@
 3. **Check "Session Handoff" section** in CURRENT_SPRINT - Any notes from last session
 4. **Check `PATTERNS.md`** - If you need implementation patterns
 5. **Check `DATA_MODELS.md`** - If working with models/services
-6. **Check `PROJECT_ROADMAP.md`** - If you need project context
-7. **Check `ENVIRONMENT.md`** - For system/IDE details
-8. **Only look at docs/** - If CURRENT_SPRINT explicitly references it
-9. **Ignore everything else** - Unless specifically directed
+6. **Check `tests/TESTING_GUIDE.md`** - IMPORTANT: For writing and running tests
+7. **Check `PROJECT_ROADMAP.md`** - If you need project context
+8. **Check `ENVIRONMENT.md`** - For system/IDE details
+9. **Only look at docs/** - If CURRENT_SPRINT explicitly references it
+10. **Ignore everything else** - Unless specifically directed
 
 ## 📍 Project Location:
 `C:\Users\engbrech\Python\virtual_client`
@@ -35,7 +36,7 @@ When completing work:
 5. **Keep it focused** - Less is more
 
 ## 🧪 After Implementation:
-1. **Write tests** for new functionality
+1. **Write tests** for new functionality (see `tests/TESTING_GUIDE.md`)
 2. **Run tests** listed in "Tests to Run" section of CURRENT_SPRINT
 3. **Fix any failures** before proceeding
 4. **Document results** in Session Handoff section
@@ -72,6 +73,7 @@ Before ending session:
 ## 📚 Key Documentation Reference:
 - **PATTERNS.md** - Established patterns (check before implementing)
 - **DATA_MODELS.md** - Model definitions and relationships
+- **tests/TESTING_GUIDE.md** - How to write and run tests correctly
 - **DOCUMENTATION_STANDARDS.md** - How to update docs properly
 - **.claude-ignore.md** - What to skip during development
 

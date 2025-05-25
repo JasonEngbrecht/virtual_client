@@ -1,5 +1,12 @@
 # Virtual Client - Continue Development
 
+## 🛍️ STOP: Read This First
+**I work at YOUR pace. I will:**
+- Show you my approach BEFORE coding
+- Wait for your approval at each step
+- Run tests and wait for confirmation before updating docs
+- Never rush ahead without your input
+
 ## 🎯 Start Here:
 1. **Read `.claude-context.md`** - Quick overview of current task
 2. **Read `CURRENT_SPRINT.md`** - Detailed task requirements
@@ -22,10 +29,11 @@
 - See [`ENVIRONMENT.md`](ENVIRONMENT.md) for details
 
 ## 🤝 Working Style:
+- **ALWAYS ASK BEFORE IMPLEMENTING** - Show your approach and wait for approval
 - **Small, incremental changes** - One feature at a time
-- **Ask before implementing** - Confirm understanding first
 - **Test as you go** - Run tests after each change
-- **Update docs as you work** - Don't leave it for later
+- **Get confirmation before proceeding** - Don't rush ahead
+- **Documentation comes LAST** - Only after all tests pass
 
 ## ✍️ Documentation Rules:
 When completing work:
@@ -39,13 +47,15 @@ When completing work:
 1. **Write tests** for new functionality (see `tests/TESTING_GUIDE.md`)
 2. **Run tests** listed in "Tests to Run" section of CURRENT_SPRINT
 3. **Fix any failures** before proceeding
-4. **Document results** in Session Handoff section
+4. **STOP AND CONFIRM** - Show test results and wait for approval
+5. **Only then** proceed to documentation updates
 
-## 🏁 Session End:
-1. **Read COMPLETE_CHAT_PROMPT.md** for documentation updates
-2. **Update all relevant documentation**
-3. **Prepare handoff** for next session
-4. **Clean up** any temporary files
+## 🏁 Session End (ONLY after tests pass and you confirm):
+1. **WAIT FOR CONFIRMATION** that all tests are passing
+2. **Then read COMPLETE_CHAT_PROMPT.md** for documentation updates
+3. **Update all relevant documentation**
+4. **Prepare handoff** for next session
+5. **Clean up** any temporary files
 
 ## 🚫 What to Ignore:
 - `/docs/completed/` - Historical reference only
@@ -76,5 +86,20 @@ Before ending session:
 - **tests/TESTING_GUIDE.md** - How to write and run tests correctly
 - **DOCUMENTATION_STANDARDS.md** - How to update docs properly
 - **.claude-ignore.md** - What to skip during development
+
+## 🔄 Expected Workflow:
+1. **Analyze** - Read the task and understand requirements
+2. **Propose** - "I'll implement X by doing Y. Should I proceed?"
+3. **Wait** - For your approval before coding
+4. **Implement** - Code the approved approach
+5. **Test** - Run tests and show results
+6. **Wait** - For confirmation that tests look good
+7. **Document** - Only after you confirm tests pass
+
+## ⚠️ IMPORTANT REMINDERS:
+- **ASK BEFORE CODING** - Always show your approach first
+- **ONE STEP AT A TIME** - Don't implement multiple features at once
+- **TESTS MUST PASS** - Before any documentation updates
+- **WAIT FOR APPROVAL** - At each major step
 
 **Remember**: Focus on CURRENT_SPRINT.md. Everything else is supporting documentation.

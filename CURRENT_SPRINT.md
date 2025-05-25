@@ -1,101 +1,130 @@
-# Current Sprint: Phase 1.4 Part 6 - Student Section Access
+# Current Sprint: Phase 1.4 Part 7 - Section Statistics
 
 ## 📍 Session Handoff
 **Last Updated**: 2025-05-25
 **Last Completed**: Phase 1.4 Part 6 - Student Section Access ✅
-**Ready to Start**: Phase 1.4 Part 7 - Section Statistics
+**Ready to Start**: Phase 1.4 Part 7 - Section Statistics implementation
 **Tests Passing**: All student section API tests passing (11/11) ✅
-**Notes for Next Session**: Student routes implemented and tested. Some pre-existing enrollment/rubric tests failing but unrelated to current work
+**Notes for Next Session**: Some pre-existing enrollment/rubric tests failing but unrelated to current work
 
 ## 📍 Where We Are in the Journey
-- **Current Phase**: 1.4 Course Section Management (Parts 1-5 ✅, Part 6 in progress)
-- **Next Part**: Part 7 - Section Statistics  
+- **Current Phase**: 1.4 Course Section Management (Parts 1-6 ✅, Part 7 in progress)
+- **Next Part**: Part 8 - Testing & Documentation  
 - **Next Phase**: 1.5 Assignment Management
-- **Overall Progress**: ~53% of Phase 1 complete (12.4 of 23-28 hours)
+- **Overall Progress**: ~56% of Phase 1 complete (12.9 of 23 hours minimum)
 - **See**: [`PROJECT_ROADMAP.md`](PROJECT_ROADMAP.md) for full context
 
-**Status**: ✅ COMPLETE | **Actual Time**: 45 minutes
+**Status**: Ready to Start | **Estimated Time**: 30-40 minutes
 
 ## 🎯 Sprint Goal
-Add student endpoints to view their enrolled sections (read-only access).
+Add statistics endpoints for teachers to view enrollment counts and section status.
 
 ## 📋 Tasks
-1. [✓] Create `backend/api/student_routes.py` with student router
-2. [✓] Implement mock `get_current_student()` dependency
-3. [✓] Add GET `/api/student/sections` endpoint
-4. [✓] Add GET `/api/student/sections/{id}` endpoint
-5. [✓] Write integration tests
-6. [✓] Update `backend/app.py` to include student router
+1. [ ] Add `get_section_stats()` method to `section_service.py`
+2. [ ] Add `get_all_sections_stats()` method to `section_service.py`
+3. [ ] Add GET `/api/teacher/sections/stats` endpoint
+4. [ ] Add GET `/api/teacher/sections/{id}/stats` endpoint
+5. [ ] Write integration tests
+6. [ ] Ensure efficient SQL queries (no N+1 problems)
 
 ## 🔧 Implementation Details
 
-### New File: `backend/api/student_routes.py`
+### Service Methods to Add
+
+#### 1. section_service.get_section_stats()
 ```python
-# Create router similar to teacher_routes.py structure
-# Import: enrollment_service, section_service
-# Mock auth returns: "student-123"
+def get_section_stats(self, db: Session, section_id: str) -> dict:
+    """
+    Get enrollment statistics for a single section.
+    
+    Returns:
+        {
+            "section_id": str,
+            "active_enrollments": int,
+            "inactive_enrollments": int,
+            "total_enrollments": int
+        }
+    """
+```
+
+#### 2. section_service.get_all_sections_stats()
+```python
+def get_all_sections_stats(self, db: Session, teacher_id: str) -> List[dict]:
+    """
+    Get enrollment statistics for all teacher's sections.
+    Uses efficient SQL to avoid N+1 queries.
+    
+    Returns:
+        List of stats dictionaries with section info
+    """
 ```
 
 ### Endpoints to Implement
 
-#### 1. GET `/api/student/sections`
-- **Purpose**: List all sections student is enrolled in
-- **Service Method**: `enrollment_service.get_student_sections(db, student_id)`
-- **Returns**: List of CourseSection objects
-- **Security**: Only returns sections where student is actively enrolled
+#### 1. GET `/api/teacher/sections/stats`
+- **Purpose**: Get statistics for all teacher's sections
+- **Returns**: List of sections with enrollment counts
+- **Example Response**:
+```json
+[
+    {
+        "section_id": "uuid",
+        "name": "SW 101 - Fall 2025",
+        "active_enrollments": 25,
+        "inactive_enrollments": 3,
+        "total_enrollments": 28
+    }
+]
+```
 
-#### 2. GET `/api/student/sections/{id}`
-- **Purpose**: Get details of a specific enrolled section
-- **Service Method**: 
-  - Check enrollment: `enrollment_service.is_student_enrolled(db, section_id, student_id)`
-  - Get details: `section_service.get(db, section_id)`
-- **Returns**: CourseSection object or 404
-- **Security**: 404 if student not enrolled (don't reveal section exists)
+#### 2. GET `/api/teacher/sections/{id}/stats`
+- **Purpose**: Get detailed statistics for a specific section
+- **Returns**: Single section statistics
+- **Security**: 404 if section doesn't exist or belongs to another teacher
 
 ## ⚠️ Key Patterns to Follow
 
-**Authentication** → PATTERNS.md: "Mock Authentication Pattern"
-**Router Setup** → PATTERNS.md: "Standard CRUD Routes"
-**Error Handling** → PATTERNS.md: "Standard Error Responses"
-**Service Usage** → Use existing enrollment_service and section_service
+**Efficient Queries** → Use SQL COUNT() and GROUP BY
+**Security** → Teacher can only see their own sections' stats
+**Zero Handling** → Return 0 counts for sections with no enrollments
+**Response Format** → Include section metadata with stats
 
 ## 🧪 Testing Requirements
 
-Create `tests/integration/test_student_section_api.py`:
-1. Test student can list their enrolled sections
-2. Test student can get details of enrolled section
-3. Test student gets 404 for non-enrolled section
-4. Test empty list when no enrollments
-5. Test student can't see full roster
+Create `tests/integration/test_section_stats_api.py`:
+1. Test stats for section with enrollments
+2. Test stats for section with no enrollments
+3. Test bulk stats endpoint
+4. Test 404 for non-existent section
+5. Test 403 for other teacher's section
+6. Test inactive enrollment counting
 
 ## ❌ What NOT to Do
-- Don't create update/delete endpoints (view only)
-- Don't expose enrollment counts or other students
-- Don't return 403 errors (use 404 for security)
-- Don't modify existing services
+- Don't load all enrollments into memory (use SQL aggregation)
+- Don't expose individual student information
+- Don't create N+1 query problems
+- Don't include sensitive data in stats
 
 ## ✅ Definition of Done
-- [✓] Both endpoints working with mock auth
-- [✓] Integration tests passing
-- [✓] Student can only see their own sections
-- [✓] Proper 404 responses for non-enrolled sections
-- [✓] App includes student router
+- [ ] Both stats endpoints working
+- [ ] Efficient SQL queries (single query for bulk stats)
+- [ ] Integration tests passing
+- [ ] Proper error handling
+- [ ] Zero counts handled correctly
 
 ## 📚 Quick Reference
-- **Mock authentication pattern**: See PATTERNS.md
-- **Service examples**: See PATTERNS.md "Service Layer Architecture"
+- **SQL aggregation**: Use COUNT() with GROUP BY
+- **Service pattern**: See section_service.py
 - **Error handling**: See PATTERNS.md "Standard Error Responses"
-- **Router structure**: Check teacher_routes.py for example
+- **Testing pattern**: See existing section API tests
 
 ## ✅ Tests to Run
-**After implementing Part 6**:
-- `python -m pytest tests/integration/test_student_section_api.py -v` (new - create this)
-- `python -m pytest tests/integration/test_enrollment_api.py -v` (regression)
+**After implementing Part 7**:
+- `python -m pytest tests/integration/test_section_stats_api.py -v` (new)
 - `python -m pytest tests/integration/test_section_api.py -v` (regression)
 - `python test_quick.py` (general smoke test)
 
 **If any failures occur**:
 1. Fix the issue
 2. Re-run the specific failing test
-3. Run `python run_tests.py` for full validation
-4. Document any persistent issues in Session Handoff
+3. Document any persistent issues in Session Handoff

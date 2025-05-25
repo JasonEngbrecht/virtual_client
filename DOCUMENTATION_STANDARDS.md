@@ -17,16 +17,85 @@ This guide ensures consistent documentation as the project grows.
 - Under 200 lines
 - Clear on what NOT to do
 
+### PROJECT_ROADMAP.md
+**Update when:**
+- Completing a phase or major milestone
+- Changing project timeline or scope
+- Adding new phases or features
+- Updating progress percentages
+
+**Keep it:**
+- Strategic and high-level
+- Focused on the big picture
+- Clear about dependencies
+- Updated with actual vs estimated times
+
 ### PATTERNS.md
 **Update when:**
 - Establishing a new pattern used across multiple files
 - Discovering a better way to implement something
 - Adding a new service/route/model pattern
 
+**Keep it:**
+- Organized by category (use table of contents)
+- Code-focused with examples
+- Under 1000 lines
+- Practical and actionable
+
 **Don't include:**
 - One-off implementations
 - Phase-specific details
 - Historical decisions
+
+### DATA_MODELS.md (in docs/architecture/)
+**Update when:**
+- Adding new models to the system
+- Changing model fields or relationships
+- Moving models from planned to implemented
+- Adding validation rules or constraints
+
+**Keep it:**
+- Complete reference for all models
+- Clear about implemented vs planned
+- Showing relationships and constraints
+- Including example JSON representations
+
+### .claude-context.md
+**Update when:**
+- Moving to a new phase or part
+- Key files or patterns change
+- Current task focus shifts
+
+**Keep it:**
+- Ultra-concise (under 50 lines)
+- Focused on immediate task
+- With critical patterns only
+- Updated with current file references
+
+### ENVIRONMENT.md
+**Update when:**
+- Development tools change
+- New dependencies added
+- Testing strategy evolves
+- Common commands change
+
+**Keep it:**
+- Practical and command-focused
+- Windows-specific where relevant
+- With troubleshooting tips
+- Under 300 lines
+
+### COMPLETE_CHAT_PROMPT.md
+**Update when:**
+- Documentation workflow changes
+- New documentation files added
+- Checklist items need revision
+
+**Keep it:**
+- As a checklist format
+- Action-oriented
+- With clear examples
+- Under 150 lines
 
 ### README.md
 **Update when:**
@@ -37,14 +106,15 @@ This guide ensures consistent documentation as the project grows.
 **Keep it:**
 - High-level overview only
 - Clear navigation to other docs
-- Under 200 lines
+- Under 100 lines
 
 ## 📁 Creating New Documentation
 
 ### During Development
 1. **Work in progress** → Update CURRENT_SPRINT.md only
 2. **New patterns** → Add to PATTERNS.md immediately
-3. **Temporary notes** → Keep in CURRENT_SPRINT.md
+3. **Model changes** → Update DATA_MODELS.md
+4. **Temporary notes** → Keep in CURRENT_SPRINT.md
 
 ### After Phase Completion
 1. **Create summary** in `docs/completed/phase-X-X-name.md`
@@ -57,9 +127,17 @@ This guide ensures consistent documentation as the project grows.
    - Only if individual parts are complex
    - Name consistently: `part-N-description.md`
 
-3. **Update README.md** progress section
+3. **Update PROJECT_ROADMAP.md**
+   - Mark phase complete
+   - Update actual time taken
+   - Adjust future estimates if needed
 
-4. **Clean up:**
+4. **Update .claude-context.md**
+   - Point to next task
+   - Update key files
+   - Refresh critical patterns
+
+5. **Clean up:**
    - Remove completed tasks from CURRENT_SPRINT.md
    - Delete temporary test scripts
    - Archive old prompts
@@ -106,6 +184,20 @@ This guide ensures consistent documentation as the project grows.
 
 ### CURRENT_SPRINT Update Template
 ```markdown
+## 📍 Session Handoff
+**Last Updated**: [Date/Time]
+**Last Completed**: [What was just finished]
+**Ready to Start**: [Next task]
+**Tests Passing**: All tests passing ✅ / [List any failures]
+**Notes for Next Session**: [Any important context]
+
+## 📍 Where We Are in the Journey
+- **Current Phase**: X.X [Name] (Parts Y complete)
+- **Next Part**: [Description]
+- **Next Phase**: X.X [Name]
+- **Overall Progress**: X% of Phase 1 complete
+- **See**: [`PROJECT_ROADMAP.md`](PROJECT_ROADMAP.md) for full context
+
 ## 🎯 Sprint Goal
 [Clear, single objective]
 
@@ -119,17 +211,27 @@ This guide ensures consistent documentation as the project grows.
 
 ## ❌ What NOT to Do
 [Common pitfalls to avoid]
+
+## ✅ Tests to Run
+**After implementing [Part Name]**:
+- `python -m pytest tests/[new_test].py -v` (new)
+- `python -m pytest tests/[regression].py -v` (regression)
+- `python test_quick.py` (smoke test)
 ```
 
 ## 🔄 Maintenance Schedule
 
 ### After Each Task:
-- Update CURRENT_SPRINT.md checkboxes
+- Update CURRENT_SPRINT.md checkboxes and Session Handoff
 - Add new patterns to PATTERNS.md if needed
+- Update DATA_MODELS.md if models change
+- Update .claude-context.md if focus shifts
 
 ### After Each Phase Part:
 - Consider if detailed docs are needed
-- Update progress in README.md
+- Update progress in PROJECT_ROADMAP.md
+- Update "Where We Are" in CURRENT_SPRINT.md
+- Refresh .claude-context.md for next part
 
 ### After Each Phase:
 - Create phase summary
@@ -141,17 +243,25 @@ This guide ensures consistent documentation as the project grows.
 
 | Document | Max Lines | Purpose |
 |----------|-----------|---------|
+| .claude-context.md | 50 | Quick task reference |
 | CURRENT_SPRINT.md | 200 | Active work only |
-| PATTERNS.md | 500 | Quick reference |
-| README.md | 200 | Navigation & overview |
+| PATTERNS.md | 1000 | Quick reference (categorized) |
+| PROJECT_ROADMAP.md | 500 | Strategic vision |
+| DATA_MODELS.md | 800 | Model reference |
+| ENVIRONMENT.md | 300 | Dev setup & commands |
+| COMPLETE_CHAT_PROMPT.md | 150 | Session end checklist |
+| README.md | 100 | Navigation & overview |
 | Phase summaries | 300 | Historical record |
 
 ## 🎯 Goal
 
 **Make it easy for Claude to:**
-1. Find current task quickly
-2. Apply established patterns
-3. Ignore irrelevant history
-4. Update docs consistently
+1. Get oriented quickly (.claude-context)
+2. Find current task (CURRENT_SPRINT)
+3. Apply established patterns (PATTERNS)
+4. Understand project context (PROJECT_ROADMAP)
+5. Reference data structures (DATA_MODELS)
+6. Know the environment (ENVIRONMENT)
+7. Close sessions properly (COMPLETE_CHAT_PROMPT)
 
 **Remember**: If Claude has to read more than 3 files to start working, the documentation has failed its purpose.

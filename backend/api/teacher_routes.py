@@ -332,9 +332,8 @@ async def delete_rubric(
     """
     Delete an evaluation rubric.
     
-    Only allows deletion if the rubric belongs to the current teacher.
-    Note: In Part 5, we'll add cascade protection to prevent deletion
-    if the rubric is being used by any sessions.
+    Only allows deletion if the rubric belongs to the current teacher
+    and is not being used by any sessions.
     
     Args:
         rubric_id: The ID of the rubric to delete
@@ -345,6 +344,7 @@ async def delete_rubric(
     Raises:
         404: Rubric not found
         403: Rubric exists but belongs to another teacher
+        409: Rubric is being used by one or more sessions
         500: Server error during deletion
     """
     
@@ -361,6 +361,13 @@ async def delete_rubric(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to delete this rubric"
+        )
+    
+    # Check if rubric is in use by any sessions
+    if rubric_service.is_rubric_in_use(db, rubric_id):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Cannot delete rubric '{rubric.name}' because it is being used by one or more sessions. Please end or reassign those sessions first."
         )
     
     # Delete the rubric

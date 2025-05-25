@@ -1,26 +1,31 @@
 # Virtual Client - Social Work Training App
 
-**Status:** In Development | **Phase:** 1.3 - EvaluationRubric CRUD | **Progress:** Part 4 of 7 Complete
+**Status:** In Development | **Phase:** 1.3 - EvaluationRubric CRUD | **Progress:** Part 6 of 7 Complete
 
 This project will create a virtual client that social work (and other areas) can interface with to practice working with clients.
 
 ## 🌟 Latest Achievement
-**Phase 1.3 IN PROGRESS** - EvaluationRubric CRUD implementation (Part 4 of 7 Complete):
+**Phase 1.3 IN PROGRESS** - EvaluationRubric CRUD implementation (Part 6 of 7 Complete):
 - ✅ RubricService class with teacher-filtered methods
-- ✅ Unit tests for all service methods (5 tests passing)
+- ✅ Unit tests for all service methods (8 tests passing)
 - ✅ All CRUD API endpoints implemented:
   - GET /api/teacher/rubrics (list all rubrics)
   - POST /api/teacher/rubrics (create with criteria validation)
   - GET /api/teacher/rubrics/{id} (retrieve specific rubric)
   - PUT /api/teacher/rubrics/{id} (update with partial support)
-  - DELETE /api/teacher/rubrics/{id} (delete rubric)
-- ✅ Comprehensive integration tests for all endpoints
-- ✅ Error handling (404, 403, 400, 422) matching client endpoints
-- 🔄 Ready for Part 5: Add cascade protection
+  - DELETE /api/teacher/rubrics/{id} (delete with cascade protection)
+- ✅ Cascade protection preventing deletion of rubrics in use
+- ✅ Comprehensive integration tests for all endpoints (21 tests)
+- ✅ Error handling (404, 403, 400, 409, 422) including conflict detection
+- ✅ Enhanced validation with user-friendly error messages:
+  - Weight validation shows actual sum vs expected with breakdown
+  - Duplicate criterion name prevention
+  - Clear guidance on fixing validation errors
+- 🔄 Ready for Part 7: Comprehensive test suite
 
 **Previous Achievement:** Phase 1.2 COMPLETE - Full ClientProfile CRUD with enhanced error handling
 
-**Next:** Phase 1.3 Part 5 - Add Cascade Protection
+**Next:** Phase 1.3 Part 7 - Comprehensive Test Suite
 
 ## Project Overview
 
@@ -249,10 +254,11 @@ virtual_client/
   - [x] Test each error case thoroughly
   
   **Testing Strategy**: After each part, run unit tests, manual tests, and integration tests before proceeding.
-- [ ] **Phase 1.3: EvaluationRubric CRUD**
-  - [ ] Storage service with criteria validation
-  - [ ] Teacher API routes for rubric management
-  - [ ] Cascade protection testing
+- [ ] **Phase 1.3: EvaluationRubric CRUD** (In Progress - Part 6 of 7 Complete)
+  - [x] Storage service with criteria validation
+  - [x] Teacher API routes for rubric management
+  - [x] Cascade protection testing
+  - [x] Enhanced validation with user-friendly error messages
   
   **Incremental Implementation Plan for Phase 1.3:**
   
@@ -283,19 +289,19 @@ virtual_client/
   - [x] DELETE `/api/teacher/rubrics/{id}` (delete) - basic version first
   - [x] **Test**: Manual testing + integration test for each endpoint
   
-  **Part 5: Add Cascade Protection (30-45 minutes)**
-  - [ ] Add `is_rubric_in_use()` method to check if rubric is referenced by sessions
-  - [ ] Modify delete endpoint to check before deletion
-  - [ ] Add appropriate error response (409 Conflict)
-  - [ ] Create tests with mock session data
-  - [ ] **Test**: Unit test for protection logic + integration test for delete with conflict
+  **Part 5: Add Cascade Protection (30-45 minutes)** ✅
+  - [x] Add `is_rubric_in_use()` method to check if rubric is referenced by sessions
+  - [x] Modify delete endpoint to check before deletion
+  - [x] Add appropriate error response (409 Conflict)
+  - [x] Create tests with mock session data
+  - [x] **Test**: Unit test for protection logic + integration test for delete with conflict
   
   **Part 6: Enhanced Validation & Error Handling (20-30 minutes)**
-  - [ ] Add detailed validation error messages for criteria structure
-  - [ ] Ensure weight validation errors are user-friendly
-  - [ ] Add any rubric-specific error cases
-  - [ ] Create comprehensive error handling test script
-  - [ ] **Test**: Error handling test script similar to Phase 1.2
+  - [x] Add detailed validation error messages for criteria structure
+  - [x] Ensure weight validation errors are user-friendly
+  - [x] Add any rubric-specific error cases
+  - [x] Create comprehensive error handling test script
+  - [x] **Test**: Error handling test script similar to Phase 1.2
   
   **Part 7: Comprehensive Test Suite (15-20 minutes)**
   - [ ] Create `test_phase_1_3_complete.py` script
@@ -459,7 +465,70 @@ Two-tier evaluation system:
 ## Current Project Status
 
 **Last Updated:** May 24, 2025
-**Current Focus:** Phase 1.3 (EvaluationRubric CRUD) - Part 4 of 7 Complete
+**Current Focus:** Phase 1.3 (EvaluationRubric CRUD) - Part 6 of 7 Complete
+
+### ✅ Phase 1.3 Part 5 Complete - Cascade Protection
+
+#### What Was Accomplished in Part 5
+
+**Service Layer Enhancement**
+- Added `is_rubric_in_use()` method to RubricService
+- Efficient database query using SQLAlchemy's COUNT function
+- Checks if any sessions reference the rubric before allowing deletion
+
+**API Endpoint Update**
+- Modified DELETE `/api/teacher/rubrics/{id}` endpoint
+- Returns 409 Conflict when rubric is being used by sessions
+- User-friendly error message explaining why deletion failed
+- Suggests user action: "Please end or reassign those sessions first"
+
+**Comprehensive Testing**
+- 3 new unit tests for the `is_rubric_in_use()` method
+- 3 new integration tests for cascade protection scenarios
+- Fixed test isolation issues with unique session IDs using UUIDs
+- All 29 rubric-related tests passing
+
+**Key Achievement**: Data integrity is now protected - rubrics cannot be deleted if they're being used by any sessions, preventing orphaned references and maintaining database consistency.
+
+### ✅ Phase 1.3 Part 6 Complete - Enhanced Validation & Error Handling
+
+#### What Was Accomplished in Part 6
+
+**Enhanced Pydantic Model Validation**
+- Added descriptive field descriptions for all fields for better API documentation
+- Enhanced weight validation to show actual values:
+  - Negative weight: "Criterion weight cannot be negative. You provided -0.5, but weights must be between 0.0 and 1.0"
+  - Excessive weight: "Criterion weight cannot exceed 1.0. You provided 1.5, but the maximum allowed weight is 1.0"
+- Enhanced weight sum validation:
+  - Shows actual sum vs expected (1.0)
+  - Lists current weights for each criterion
+  - Provides clear guidance: "Criteria weights must sum to exactly 1.0, but your weights sum to 0.800. Current weights: {Communication: 0.3, Empathy: 0.5}. Please adjust the weights so they total 1.0 (100% of the evaluation)."
+
+**Service Layer Enhancements**
+- Added duplicate criterion name validation in both `create_rubric_for_teacher()` and `update()` methods
+- Clear error message: "Each criterion must have a unique name. Found duplicate criterion names: communication. Please use distinct names for each evaluation criterion."
+- Validation works for both create and update operations
+
+**Comprehensive Error Testing**
+- Created `scripts/test_rubric_error_handling.py` that tests:
+  - 404 Not Found errors with resource IDs
+  - 422 Validation errors with helpful messages
+  - 400 Bad Request errors for invalid data
+  - 409 Conflict errors (cascade protection)
+  - 403 Forbidden errors (permission checks)
+  - Edge cases (long names, floating point tolerance, many criteria)
+- Created `test_rubric_validation.py` to demonstrate enhanced validation locally
+- Created `test_rubric_api_validation.py` for API-based validation testing
+
+**Error Message Improvements**
+- Before: "Criteria weights must sum to 1.0, got 0.8"
+- After: Full breakdown with current weights and guidance on fixing
+- Before: "Weight must be between 0 and 1"
+- After: Shows actual value provided and acceptable range
+- Before: "ensure this value has at least 1 items"
+- After: "List of specific behaviors or skills to evaluate (at least one required)"
+
+**Key Achievement**: Error messages are now user-friendly and guide users on how to fix validation issues, improving the developer experience when using the API. All 29 rubric-related tests continue to pass.
 
 ### ✅ Phase 1.2 Complete - ClientProfile CRUD Implementation
 
@@ -587,9 +656,10 @@ The current implementation is production-ready with these considerations:
   - SQLAlchemy 2.0 compatibility (text() for raw SQL)
   - Smart SQL logging (auto-disabled during tests)
   - Test runner scripts for easy execution
+- **Phase 1.2: ClientProfile CRUD** ✓ (see details below)
 
 ### 🚧 Ready to Start
-- **Phase 1.3: EvaluationRubric CRUD** (In Progress - Part 4 of 7 Complete)
+- **Phase 1.3: EvaluationRubric CRUD** (In Progress - Part 6 of 7 Complete)
   - ✅ RubricService class created and inheriting from BaseCRUD
   - ✅ Teacher-filtered methods implemented (get_teacher_rubrics, create_rubric_for_teacher, can_update, can_delete)
   - ✅ All CRUD API endpoints implemented:
@@ -597,9 +667,20 @@ The current implementation is production-ready with these considerations:
     - POST `/api/teacher/rubrics` (create with validation)
     - GET `/api/teacher/rubrics/{id}` (retrieve specific rubric)
     - PUT `/api/teacher/rubrics/{id}` (update with partial support)
-    - DELETE `/api/teacher/rubrics/{id}` (delete rubric)
-  - 🔄 Currently ready for Part 5: Add cascade protection
-  - Continuing to follow incremental approach from Phase 1.2
+    - DELETE `/api/teacher/rubrics/{id}` (delete with cascade protection)
+  - ✅ Cascade protection implemented with `is_rubric_in_use()` method
+  - ✅ 409 Conflict response when attempting to delete rubrics in use
+  - ✅ Enhanced validation with user-friendly error messages:
+    - Weight validation shows actual vs expected values
+    - Weight sum errors include breakdown of all criteria weights
+    - Duplicate criterion name prevention with clear error messages
+    - Field descriptions for better API documentation
+  - ✅ Test scripts created:
+    - `scripts/test_rubric_error_handling.py` - Comprehensive error testing
+    - `test_rubric_validation.py` - Local validation demonstration
+    - `test_rubric_api_validation.py` - API-based validation testing
+  - 🔄 Currently ready for Part 7: Comprehensive test suite
+  - All tests passing (29 rubric-related tests)
 
 ### 📝 Key Documentation Files
 - `README.md` - Main project documentation (includes Phase 1.2 complete details)
@@ -607,11 +688,12 @@ The current implementation is production-ready with these considerations:
 - Various test scripts in root and `/scripts` directories
 
 ### 📋 Next Steps
-1. **Continue Phase 1.3 Part 5**: Add cascade protection for rubrics
-2. Implement `is_rubric_in_use()` method to check session references
-3. Add 409 Conflict response when trying to delete rubrics in use
-4. Create tests with mock session data
-5. Continue with Parts 6-7 to complete Phase 1.3
+1. **Continue Phase 1.3 Part 7**: Comprehensive test suite
+2. Create `test_phase_1_3_complete.py` script
+3. Test all endpoints with various scenarios
+4. Verify teacher isolation works correctly
+5. Test edge cases (empty criteria, invalid weights, etc.)
+6. Complete Phase 1.3 and prepare for Phase 1.4 (Session Management)
 
 ### 🚀 Quick Start for Next Session
 
@@ -645,6 +727,15 @@ python scripts/test_auth_dependency.py
 
 # Test error handling
 python scripts/test_error_handling.py
+
+# Test rubric error handling
+python scripts/test_rubric_error_handling.py
+
+# Test enhanced validation (local)
+python test_rubric_validation.py
+
+# Test enhanced validation via API (recommended)
+python test_rubric_api_validation.py
 ```
 
 **Check API Documentation:**

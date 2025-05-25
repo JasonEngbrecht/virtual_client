@@ -11,6 +11,7 @@ from sqlalchemy.pool import StaticPool
 from backend.app import app
 from backend.services.database import Base, get_db
 from backend.models.rubric import EvaluationRubricDB
+from backend.models.session import SessionDB
 
 
 # Create test database
@@ -525,3 +526,121 @@ def test_delete_rubric_verify_list():
     remaining_ids = [r["id"] for r in remaining_rubrics]
     assert rubric1_id not in remaining_ids
     assert rubric2_id in remaining_ids
+
+
+def test_delete_rubric_cascade_protection():
+    """Test DELETE /api/teacher/rubrics/{id} with cascade protection (409 conflict)"""
+    import uuid
+    
+    # First, create a rubric
+    rubric_data = {
+        "name": "Rubric In Use",
+        "description": "This rubric will be used by a session",
+        "criteria": [{"name": "Test", "description": "Test", "weight": 1.0, "evaluation_points": ["Test"]}]
+    }
+    
+    create_response = client.post("/api/teacher/rubrics", json=rubric_data)
+    assert create_response.status_code == 201
+    rubric_id = create_response.json()["id"]
+    rubric_name = create_response.json()["name"]
+    
+    # Create a session that uses this rubric
+    # Get database session directly to add test data
+    db = next(override_get_db())
+    test_session = SessionDB(
+        id=f"cascade-test-{uuid.uuid4()}",  # Use UUID to ensure uniqueness
+        student_id="student-123",
+        client_profile_id="client-123",
+        rubric_id=rubric_id,
+        messages=[]
+    )
+    db.add(test_session)
+    db.commit()
+    db.close()
+    
+    # Try to delete the rubric - should fail with 409
+    delete_response = client.delete(f"/api/teacher/rubrics/{rubric_id}")
+    assert delete_response.status_code == 409
+    
+    error = delete_response.json()
+    assert "detail" in error
+    assert "Cannot delete rubric" in error["detail"]
+    assert rubric_name in error["detail"]
+    assert "being used by one or more sessions" in error["detail"]
+    
+    # Verify the rubric still exists
+    get_response = client.get(f"/api/teacher/rubrics/{rubric_id}")
+    assert get_response.status_code == 200
+    assert get_response.json()["id"] == rubric_id
+
+
+def test_delete_rubric_cascade_protection_multiple_sessions():
+    """Test cascade protection with multiple sessions using the rubric"""
+    import uuid
+    
+    # Create a rubric
+    rubric_data = {
+        "name": "Popular Rubric",
+        "description": "Used by multiple sessions",
+        "criteria": [{"name": "Test", "description": "Test", "weight": 1.0, "evaluation_points": ["Test"]}]
+    }
+    
+    create_response = client.post("/api/teacher/rubrics", json=rubric_data)
+    assert create_response.status_code == 201
+    rubric_id = create_response.json()["id"]
+    
+    # Create multiple sessions using this rubric with unique IDs
+    db = next(override_get_db())
+    for i in range(3):
+        test_session = SessionDB(
+            id=f"multi-session-{uuid.uuid4()}",  # Use UUID to ensure uniqueness
+            student_id=f"student-{i}",
+            client_profile_id=f"client-{i}",
+            rubric_id=rubric_id,
+            messages=[]
+        )
+        db.add(test_session)
+    db.commit()
+    db.close()
+    
+    # Try to delete - should fail
+    delete_response = client.delete(f"/api/teacher/rubrics/{rubric_id}")
+    assert delete_response.status_code == 409
+    assert "being used by one or more sessions" in delete_response.json()["detail"]
+
+
+def test_delete_rubric_no_cascade_issue():
+    """Test that rubric can be deleted when not used by any sessions"""
+    import uuid
+    
+    # Create a rubric
+    rubric_data = {
+        "name": "Unused Rubric",
+        "description": "Not used by any sessions",
+        "criteria": [{"name": "Test", "description": "Test", "weight": 1.0, "evaluation_points": ["Test"]}]
+    }
+    
+    create_response = client.post("/api/teacher/rubrics", json=rubric_data)
+    assert create_response.status_code == 201
+    rubric_id = create_response.json()["id"]
+    
+    # Create a session with a DIFFERENT rubric
+    db = next(override_get_db())
+    test_session = SessionDB(
+        id=f"no-cascade-test-{uuid.uuid4()}",  # Use UUID to ensure uniqueness
+        student_id="student-999",
+        client_profile_id="client-999",
+        rubric_id="different-rubric-id",  # Different rubric
+        messages=[]
+    )
+    db.add(test_session)
+    db.commit()
+    db.close()
+    
+    # Delete should succeed since no sessions use this rubric
+    delete_response = client.delete(f"/api/teacher/rubrics/{rubric_id}")
+    assert delete_response.status_code == 204
+    
+    # Verify it's gone
+    get_response = client.get(f"/api/teacher/rubrics/{rubric_id}")
+    assert get_response.status_code == 404

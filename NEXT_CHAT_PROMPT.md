@@ -5,10 +5,11 @@
 2. **Read `CURRENT_SPRINT.md`** - Detailed task requirements
 3. **Check "Session Handoff" section** in CURRENT_SPRINT - Any notes from last session
 4. **Check `PATTERNS.md`** - If you need implementation patterns
-5. **Check `PROJECT_ROADMAP.md`** - If you need project context
-6. **Check `ENVIRONMENT.md`** - For system/IDE details
-7. **Only look at docs/** - If CURRENT_SPRINT explicitly references it
-8. **Ignore everything else** - Unless specifically directed
+5. **Check `DATA_MODELS.md`** - If working with models/services
+6. **Check `PROJECT_ROADMAP.md`** - If you need project context
+7. **Check `ENVIRONMENT.md`** - For system/IDE details
+8. **Only look at docs/** - If CURRENT_SPRINT explicitly references it
+9. **Ignore everything else** - Unless specifically directed
 
 ## 📍 Project Location:
 `C:\Users\engbrech\Python\virtual_client`
@@ -29,8 +30,9 @@
 When completing work:
 1. **Update CURRENT_SPRINT.md** - Mark tasks complete
 2. **Add to PATTERNS.md** - If you establish new patterns
-3. **Create phase summary** - Only after ALL parts complete
-4. **Keep it focused** - Less is more
+3. **Follow DOCUMENTATION_STANDARDS.md** - For update guidelines
+4. **Create phase summary** - Only after ALL parts complete
+5. **Keep it focused** - Less is more
 
 ## 🧪 After Implementation:
 1. **Write tests** for new functionality
@@ -66,5 +68,11 @@ Before ending session:
 1. Commit any changes
 2. Update CURRENT_SPRINT.md with progress
 3. Note any blockers or questions
+
+## 📚 Key Documentation Reference:
+- **PATTERNS.md** - Established patterns (check before implementing)
+- **DATA_MODELS.md** - Model definitions and relationships
+- **DOCUMENTATION_STANDARDS.md** - How to update docs properly
+- **.claude-ignore.md** - What to skip during development
 
 **Remember**: Focus on CURRENT_SPRINT.md. Everything else is supporting documentation.

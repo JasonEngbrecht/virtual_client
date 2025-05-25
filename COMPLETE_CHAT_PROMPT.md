@@ -5,27 +5,39 @@
 ### 1. Update Documentation
 Based on what was accomplished:
 
-**CURRENT_SPRINT.md**:
+**CURRENT_SPRINT.md** (always):
 - [ ] Mark completed tasks with ✅
+- [ ] Update "Session Handoff" section for next session
 - [ ] Update "Where We Are" section if moving to next part
 - [ ] Add any discovered blockers or important context
-- [ ] Update "Session Handoff" section for next session
 - [ ] If sprint complete, prepare next sprint section
 
-**PATTERNS.md** (if applicable):
+**.claude-context.md** (if moving to next task):
+- [ ] Update "Current Task" section
+- [ ] Update "Key Files" list
+- [ ] Refresh "Critical Patterns"
+- [ ] Update "Implementation Checklist"
+
+**PATTERNS.md** (if new patterns):
 - [ ] Add any new patterns discovered
 - [ ] Update existing patterns if improved
 - [ ] Ensure proper categorization
+- [ ] Check size (split at 800 lines per DOCUMENTATION_STANDARDS.md)
 
-**PROJECT_ROADMAP.md** (if applicable):
+**PROJECT_ROADMAP.md** (if phase part complete):
 - [ ] Update progress percentages
 - [ ] Add actual time for completed parts
 - [ ] Mark phases/parts as complete
 
-**DATA_MODELS.md** (if applicable):
+**DATA_MODELS.md** (if models touched):
 - [ ] Move models from planned to implemented
 - [ ] Add any new models created
 - [ ] Update relationships or constraints
+
+**ENVIRONMENT.md** (if environment changed):
+- [ ] Add new dependencies
+- [ ] Update commands
+- [ ] Add troubleshooting tips
 
 ### 2. Clean Up
 - [ ] Delete any temporary test files created during debugging
@@ -63,17 +75,23 @@ After implementation, ask yourself:
 4. Are all tests documented? → Update testing section in CURRENT_SPRINT.md
 5. Did I create new files? → Update .claude-context.md if needed
 
-## 🧪 Testing Documentation
-Add to CURRENT_SPRINT.md for the next session:
-```
-## ✅ Tests to Run
-**New tests created**:
-- `test_[filename].py` - [what it tests]
+## 🧪 Test Results Documentation
+Ensure CURRENT_SPRINT.md includes:
+- Which tests were created (already listed in Tasks)
+- Any regression tests that should be run next time
+- Any flaky tests or known issues
 
-**Regression tests to verify**:
-- `python -m pytest tests/unit/test_[critical].py` - [why critical]
-- `python -m pytest tests/integration/test_[critical].py` - [why critical]
-```
+Update the "Tests to Run" section in CURRENT_SPRINT.md:
+- List new test files created
+- Identify critical regression tests
+- Note any special test commands
+- Flag any tests that are slow or need special setup
+
+### If Completing a Sprint/Part:
+- [ ] Clear completed tasks from CURRENT_SPRINT.md
+- [ ] Set up next sprint section with template
+- [ ] Update .claude-context.md for next task
+- [ ] Consider if phase summary needed (see DOCUMENTATION_STANDARDS.md)
 
 ## 📝 Final Checklist
 - [ ] All new code has tests

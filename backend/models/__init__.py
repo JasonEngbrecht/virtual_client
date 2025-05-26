@@ -59,6 +59,18 @@ from .course_section import (
     SectionEnrollment
 )
 
+from .assignment import (
+    AssignmentDB,
+    AssignmentClientDB,
+    AssignmentType,
+    AssignmentCreate,
+    AssignmentUpdate,
+    Assignment,
+    AssignmentClientCreate,
+    AssignmentClient,
+    ASSIGNMENT_SETTINGS_SUGGESTIONS
+)
+
 # Export all models for easy access
 __all__ = [
     # Client Profile
@@ -111,4 +123,15 @@ __all__ = [
     'CourseSection',
     'SectionEnrollmentCreate',
     'SectionEnrollment',
+    
+    # Assignment
+    'AssignmentDB',
+    'AssignmentClientDB',
+    'AssignmentType',
+    'AssignmentCreate',
+    'AssignmentUpdate',
+    'Assignment',
+    'AssignmentClientCreate',
+    'AssignmentClient',
+    'ASSIGNMENT_SETTINGS_SUGGESTIONS',
 ]

@@ -16,7 +16,9 @@ from .models import (
     SessionDB,
     EvaluationDB,
     CourseSectionDB,
-    SectionEnrollmentDB
+    SectionEnrollmentDB,
+    AssignmentDB,
+    AssignmentClientDB
 )
 
 # Configure logging

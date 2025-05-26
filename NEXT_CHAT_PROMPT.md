@@ -79,6 +79,7 @@ Before ending session:
 1. Commit any changes
 2. Update CURRENT_SPRINT.md with progress
 3. Note any blockers or questions
+4. **DELETE ANY TEMPORARY FILES** created during the session (cleanup_*.py, verify_*.py, check_*.py, status_*.py, etc.)
 
 ## 📚 Key Documentation Reference:
 - **PATTERNS.md** - Established patterns (check before implementing)
@@ -95,6 +96,17 @@ Before ending session:
 5. **Test** - Run tests and show results
 6. **Wait** - For confirmation that tests look good
 7. **Document** - Only after you confirm tests pass
+
+## 🚨 CRITICAL - DO NOT CREATE TEST SCRIPTS! 🚨
+**STOP! DO NOT CREATE ANY TEST RUNNER SCRIPTS!**
+- **NEVER** create files like `test_xyz.py`, `verify_xyz.py`, `check_xyz.py` in the root directory
+- **ALWAYS USE EXISTING TEST RUNNERS**:
+  - `python run_tests.py` - Full test suite with coverage
+  - `python run_tests.py tests/unit/test_assignment.py` - Specific test file
+  - `python test_quick.py` - Quick database test
+  - `python -m pytest [options]` - Direct pytest command
+- **Creating new test scripts wastes time and clutters the project**
+- **This is a HARD RULE - NO EXCEPTIONS**
 
 ## ⚠️ IMPORTANT REMINDERS:
 - **ASK BEFORE CODING** - Always show your approach first

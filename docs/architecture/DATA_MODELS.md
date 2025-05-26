@@ -126,56 +126,63 @@ Links students to course sections with soft delete support.
 - Re-enrollment reactivates existing record
 - Role field for future TA support
 
-## ⏳ Planned Models (Not Yet Implemented)
-
-### Assignment (Phase 1.5)
+### Assignment
 Teacher-created practice assignments within sections.
 
 ```json
 {
     "id": "uuid",
     "section_id": "uuid",  // belongs to a course section
-    "name": "string",
+    "title": "string",
     "description": "text",
-    "instructions": "text",
-    "due_date": "timestamp",
+    "type": "practice|graded",
+    "settings": {  // flexible JSON field
+        "time_limit": 30,
+        "allow_notes": true,
+        "show_rubric": true
+    },
     "available_from": "timestamp",
-    "available_until": "timestamp",
-    "max_attempts_per_client": "integer",
-    "show_evaluation_immediately": "boolean",
-    "allow_practice_mode": "boolean",
+    "due_date": "timestamp",
     "is_published": "boolean",
+    "max_attempts": "integer|null",  // null = unlimited
     "created_at": "timestamp",
-    "order": "integer"  // display order in section
+    "updated_at": "timestamp"
 }
 ```
 
 **Key Features:**
-- Time-based availability
-- Attempt limits per client
-- Teacher controls evaluation visibility
-- Published/draft states
+- Practice vs Graded assignment types
+- Flexible settings via JSON field
+- Date-based availability control
+- Publishing workflow (draft → published)
+- Optional attempt limiting
 
-### AssignmentClient (Phase 1.5)
-Links clients and rubrics to assignments.
+**Validation Rules:**
+- Title required (1-200 chars)
+- Due date must be after available_from
+- Max attempts must be positive or null
+
+### AssignmentClient
+Links clients and rubrics to assignments with soft delete support.
 
 ```json
 {
     "id": "uuid",
     "assignment_id": "uuid",
-    "client_profile_id": "uuid",
+    "client_id": "uuid",
     "rubric_id": "uuid",
-    "order": "integer",  // which client to complete first/second/etc
-    "is_required": "boolean",  // future: optional clients
-    "special_instructions": "text"  // client-specific instructions
+    "is_active": "boolean",  // soft delete
+    "display_order": "integer"  // order clients appear to students
 }
 ```
 
-**Design Notes:**
-- Allows multiple clients per assignment
+**Key Features:**
+- Many-to-many relationship with rubric per pair
+- Soft delete for preserving history
+- Display ordering for student experience
 - Each client can have different rubric
-- Order enforces completion sequence
-- Special instructions override general ones
+
+## ⏳ Planned Models (Not Yet Implemented)
 
 ### Session (Phase 1.6 - Enhanced)
 Student practice sessions with virtual clients.

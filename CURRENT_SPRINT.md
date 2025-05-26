@@ -1,48 +1,49 @@
 # Current Sprint: Phase 1.5 - Assignment Management
 
 ## 📍 Session Handoff
-**Last Updated**: 2025-05-25 (Updated breakdown)
-**Last Completed**: Phase 1.4 Part 8 - Testing & Documentation ✅
-**Ready to Start**: Phase 1.5 Part 1 - Assignment Database Models
-**Tests Passing**: All tests passing ✅ (171 total - 151 from test suite + 20 new client tests)
+**Last Updated**: 2025-05-25 20:30
+**Last Completed**: Phase 1.5 Part 3 - Assignment Service Core ✅
+**Ready to Start**: Phase 1.5 Part 4 - Assignment Teacher Endpoints
+**Tests Passing**: All tests passing ✅ (219 total)
 **Notes for Next Session**: 
-- Phase 1.4 fully complete with comprehensive documentation
-- Missing client API tests from Phase 1.2 have been added
-- 81% overall code coverage achieved
-- All patterns documented and ready for reuse
-- Phase 1.5 has been broken into 8 testable parts (similar to Phase 1.4)
-- PROJECT_ROADMAP.md updated with detailed breakdown
+- Parts 1-3 complete: Database models, junction model, and service layer implemented
+- Assignment service created with full CRUD operations and teacher permissions
+- Comprehensive unit tests written for the assignment service (32 test methods)
+- Service includes publishing/unpublishing logic and date-based availability filtering
+- Fixed 2 test failures in list_teacher_assignments and list_section_assignments
+- Updated NEXT_CHAT_PROMPT.md with stronger warning against creating test scripts
+- Ready to create API endpoints in teacher routes
 
 ## 📍 Where We Are in the Journey
 - **Previous Phase**: 1.4 Course Section Management ✅ (All 8 parts complete)
-- **Current Phase**: 1.5 Assignment Management (Starting)
-- **Overall Progress**: ~63% of Phase 1 complete (14.75 of 23 hours minimum)
+- **Current Phase**: 1.5 Assignment Management (Part 3 of 8 complete)
+- **Overall Progress**: ~65% of Phase 1 complete (15.5 of 23 hours minimum)
 - **See**: [`PROJECT_ROADMAP.md`](PROJECT_ROADMAP.md) for full context
 
-**Status**: Not Started | **Estimated Time**: 4-5 hours
+**Status**: In Progress | **Estimated Time**: 4-5 hours | **Completed So Far**: ~1.5 hours
 
 ## 🎯 Sprint Goal
 Implement assignment management within course sections, allowing teachers to create assignments that link clients and rubrics, with support for both practice and graded modes.
 
 ## 📋 Planned Tasks
 
-### Part 1: Assignment Database Models (30-40 min)
-- [ ] Create `backend/models/assignment.py`
-- [ ] Define `AssignmentDB` model with core fields
-- [ ] Create Pydantic schemas (AssignmentCreate, AssignmentUpdate, Assignment)
-- [ ] Write unit tests for model validation
+### Part 1: Assignment Database Models (30-40 min) ✅
+- [x] Create `backend/models/assignment.py`
+- [x] Define `AssignmentDB` model with core fields
+- [x] Create Pydantic schemas (AssignmentCreate, AssignmentUpdate, Assignment)
+- [x] Write unit tests for model validation
 
-### Part 2: Assignment-Client Junction Model (30-40 min)
-- [ ] Add `AssignmentClientDB` model to assignment.py
-- [ ] Implement soft delete support (is_active)
-- [ ] Create Pydantic schemas (AssignmentClientCreate, AssignmentClient)
-- [ ] Write unit tests for junction relationships
+### Part 2: Assignment-Client Junction Model (30-40 min) ✅
+- [x] Add `AssignmentClientDB` model to assignment.py
+- [x] Implement soft delete support (is_active)
+- [x] Create Pydantic schemas (AssignmentClientCreate, AssignmentClient)
+- [x] Write unit tests for junction relationships
 
-### Part 3: Assignment Service Core (30-40 min)
-- [ ] Create `backend/services/assignment_service.py` with basic CRUD
-- [ ] Add teacher permission checks (can_update, can_delete)
-- [ ] Implement create_assignment_for_teacher method
-- [ ] Write unit tests for service methods
+### Part 3: Assignment Service Core (30-40 min) ✅
+- [x] Create `backend/services/assignment_service.py` with basic CRUD
+- [x] Add teacher permission checks (can_update, can_delete)
+- [x] Implement create_assignment_for_teacher method
+- [x] Write unit tests for service methods
 
 ### Part 4: Assignment Teacher Endpoints (30-40 min)
 - [ ] Add assignment CRUD to teacher routes

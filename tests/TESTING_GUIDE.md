@@ -294,6 +294,35 @@ def test_service_method(self):
 asyncio_default_fixture_loop_scope = function
 ```
 
+### Foreign Key Constraint Errors
+**Problem**: `NOT NULL constraint failed` or `FOREIGN KEY constraint failed`
+**Solution**:
+- Commit parent objects before using their IDs:
+  ```python
+  section = CourseSectionDB(...)
+  db_session.add(section)
+  db_session.commit()  # Commit to get ID
+  
+  assignment = AssignmentDB(section_id=section.id, ...)
+  ```
+- Ensure all required foreign key relationships are satisfied
+
+### Empty JSON Field Validation Errors
+**Problem**: Model validation fails for empty JSON arrays (e.g., rubric criteria)
+**Solution**:
+- Provide valid data that meets model requirements:
+  ```python
+  # Don't use empty criteria array
+  rubric = EvaluationRubricDB(
+      criteria=[{  # At least one criterion required
+          "name": "Test",
+          "weight": 1.0,
+          "evaluation_points": ["Point"],
+          # ... other required fields
+      }]
+  )
+  ```
+
 ## Debugging Tests
 
 ### PyCharm Debugging

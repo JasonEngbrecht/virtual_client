@@ -75,16 +75,16 @@ Build the complete data management layer for teachers.
 - **Actual Time**: 4.5 hours
 
 #### ⏳ 1.5: Assignment Management (4-5 hours)
-- Part 1: Assignment Database Models (30-40 min)
+- ✅ Part 1: Assignment Database Models (40 min actual)
   - Create AssignmentDB model with core fields
   - Create Pydantic schemas (Create, Update, Response)
   - Write unit tests for model validation
-- Part 2: Assignment-Client Junction Model (30-40 min)
+- ✅ Part 2: Assignment-Client Junction Model (30 min actual)
   - Create AssignmentClientDB junction table
   - Add soft delete support (is_active)
   - Create Pydantic schemas
   - Write unit tests for junction relationships
-- Part 3: Assignment Service Core (30-40 min)
+- ✅ Part 3: Assignment Service Core (40 min actual)
   - Create assignment_service.py with basic CRUD
   - Add teacher permission checks
   - Implement create_for_teacher method
@@ -268,14 +268,14 @@ Production readiness.
 ## ⏱️ Timeline Summary
 
 ### Phase 1 Breakdown (Foundation)
-- **Completed**: 14.75 hours
+- **Completed**: 16.6 hours
   - 1.1 Database: 2.5 hours ✅
   - 1.2 Clients: 3.25 hours ✅
   - 1.3 Rubrics: 3 hours ✅
   - 1.4 Sections: 4.5 hours ✅
-  - 1.5 Assignments: Ready to start 🎯
-- **Remaining**: 8.25-13.25 hours
-  - 1.5 Assignments: 4-5 hours
+  - 1.5 Assignments: 1.85 hours (Parts 1-3 of 8) 🎯
+- **Remaining**: 6.4-11.4 hours
+  - 1.5 Assignments: 2.15-3.15 hours (Parts 4-8)
   - 1.6 Sessions: 4-5 hours
   - 1.7 Evaluation: 3-4 hours
 
@@ -290,10 +290,10 @@ Production readiness.
 
 ## 🎯 Current Status
 
-- **Active Sprint**: Phase 1.5 - Assignment Management (ready to start)
-- **Completed**: ~63% of Phase 1 (14.75 of 23 hours minimum)
+- **Active Sprint**: Phase 1.5 - Assignment Management (Parts 1-3 of 8 complete)
+- **Completed**: ~72% of Phase 1 (16.6 of 23 hours minimum)
 - **Previous Sprint**: Phase 1.4 Complete - All 8 parts ✅
-- **Next Phase**: Phase 1.6 - Session Management
+- **Next Part**: Phase 1.5 Part 4 - Assignment Teacher Endpoints
 
 ## 🚀 Key Milestones
 

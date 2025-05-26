@@ -204,6 +204,61 @@ service_name = ServiceName(ModelDB)
 - `delete_*` - Remove records (hard or soft)
 - `can_*` - Permission checks
 - `is_*` - Boolean checks
+- `publish_*` / `unpublish_*` - State transitions
+
+### Business Logic Enforcement
+Enforce business rules at the service layer, not just API layer:
+```python
+# Example: Assignment publishing restrictions
+def update(self, db: Session, assignment_id: str, update_data: AssignmentUpdate, teacher_id: str):
+    assignment = self.get(db, assignment_id)
+    
+    # Business rule: Limited updates on published assignments
+    if assignment.is_published:
+        allowed_updates = {'description', 'due_date', 'max_attempts', 'is_published'}
+        update_dict = update_data.model_dump(exclude_unset=True)
+        
+        # Filter out restricted fields
+        restricted_updates = set(update_dict.keys()) - allowed_updates
+        if restricted_updates:
+            logger.warning(f"Cannot update fields {restricted_updates} on published assignment")
+            for field in restricted_updates:
+                update_dict.pop(field, None)
+        
+        return super().update(db, assignment_id, **update_dict)
+    
+    # Draft assignments allow all updates
+    return super().update(db, assignment_id, **update_data.model_dump(exclude_unset=True))
+```
+
+### Publishing Pattern
+For resources with draft/published states:
+```python
+def publish_item(self, db: Session, item_id: str, user_id: str) -> Optional[ItemDB]:
+    # 1. Check permissions
+    if not self.can_update(db, item_id, user_id):
+        return None
+    
+    # 2. Validate prerequisites (e.g., required relationships)
+    if not self._validate_publishing_requirements(db, item_id):
+        return None
+    
+    # 3. Update state
+    item = self.get(db, item_id)
+    item.is_published = True
+    db.commit()
+    db.refresh(item)
+    return item
+
+def _validate_publishing_requirements(self, db: Session, item_id: str) -> bool:
+    # Check specific requirements
+    # e.g., Assignment must have at least one active client
+    active_count = db.query(RelatedModel).filter(
+        RelatedModel.item_id == item_id,
+        RelatedModel.is_active == True
+    ).count()
+    return active_count > 0
+```
 
 ### Efficient Aggregation Queries
 Use SQL aggregation for statistics to avoid N+1 queries:

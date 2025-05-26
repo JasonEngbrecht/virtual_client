@@ -26,6 +26,7 @@ from backend.models.evaluation import EvaluationDB
 from backend.models.rubric import EvaluationRubricDB
 from backend.models.session import SessionDB
 from backend.models.course_section import CourseSectionDB, SectionEnrollmentDB
+from backend.models.assignment import AssignmentDB, AssignmentClientDB
 
 
 # Test database URL - use in-memory SQLite for speed

@@ -506,6 +506,29 @@ async def list_sections(
     return sections
 
 
+# GET /sections/stats - Get stats for all teacher's sections
+# NOTE: This must come before /sections/{section_id} to avoid route conflicts
+@router.get("/sections/stats")
+async def get_all_sections_stats(
+    db: Session = Depends(get_db),
+    teacher_id: str = Depends(get_current_teacher)
+):
+    """
+    Get enrollment statistics for all teacher's sections.
+    
+    Returns statistics including active/inactive enrollment counts
+    for each section owned by the teacher.
+    
+    Returns:
+        List of sections with enrollment statistics
+    """
+    
+    # Get statistics for all teacher's sections
+    stats = section_service.get_all_sections_stats(db, teacher_id)
+    
+    return stats
+
+
 # POST /sections - Create a new section
 @router.post("/sections", response_model=CourseSection, status_code=201)
 async def create_section(
@@ -712,6 +735,53 @@ async def delete_section(
     
     # Return 204 No Content on successful deletion
     return None
+
+
+# GET /sections/{section_id}/stats - Get stats for a specific section
+@router.get("/sections/{section_id}/stats")
+async def get_section_stats(
+    section_id: str,
+    db: Session = Depends(get_db),
+    teacher_id: str = Depends(get_current_teacher)
+):
+    """
+    Get enrollment statistics for a specific section.
+    
+    Only returns statistics if the section belongs to the current teacher.
+    
+    Args:
+        section_id: The ID of the section to get statistics for
+        
+    Returns:
+        Section statistics including active/inactive enrollment counts
+        
+    Raises:
+        404: Section not found
+        403: Section exists but belongs to another teacher
+    """
+    
+    # First check if section exists
+    section = section_service.get(db, section_id)
+    if not section:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Section with ID '{section_id}' not found"
+        )
+    
+    # Check if section belongs to this teacher
+    if section.teacher_id != teacher_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to view statistics for this section"
+        )
+    
+    # Get the statistics
+    stats = section_service.get_section_stats(db, section_id)
+    
+    # Add section name to the response
+    stats["name"] = section.name
+    
+    return stats
 
 
 # DELETE /rubrics/{rubric_id} - Delete a rubric

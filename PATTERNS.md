@@ -163,6 +163,59 @@ service_name = ServiceName(ModelDB)
 - `can_*` - Permission checks
 - `is_*` - Boolean checks
 
+### Efficient Aggregation Queries
+Use SQL aggregation for statistics to avoid N+1 queries:
+```python
+def get_section_stats(self, db: Session, section_id: str) -> Dict:
+    """Get enrollment statistics using SQL aggregation"""
+    stats = db.query(
+        func.count(case((Model.is_active == True, 1))).label('active_count'),
+        func.count(case((Model.is_active == False, 1))).label('inactive_count'),
+        func.count(Model.id).label('total_count')
+    ).filter(
+        Model.section_id == section_id
+    ).first()
+    
+    return {
+        "active_count": stats.active_count or 0,
+        "inactive_count": stats.inactive_count or 0,
+        "total_count": stats.total_count or 0
+    }
+```
+
+### Bulk Statistics Pattern
+For multiple items, use GROUP BY to get all stats in one query:
+```python
+def get_all_sections_stats(self, db: Session, teacher_id: str) -> List[Dict]:
+    # Get all sections first
+    sections = db.query(Section.id, Section.name).filter(
+        Section.teacher_id == teacher_id
+    ).all()
+    
+    # Get stats for all sections in one query
+    stats = db.query(
+        Model.section_id,
+        func.count(case((Model.is_active == True, 1))).label('active'),
+        func.count(Model.id).label('total')
+    ).filter(
+        Model.section_id.in_([s.id for s in sections])
+    ).group_by(
+        Model.section_id
+    ).all()
+    
+    # Combine results, handling sections with no enrollments
+    stats_dict = {stat.section_id: stat for stat in stats}
+    return [
+        {
+            "section_id": section.id,
+            "name": section.name,
+            "active": stats_dict.get(section.id, {}).active or 0,
+            "total": stats_dict.get(section.id, {}).total or 0
+        }
+        for section in sections
+    ]
+```
+
 ---
 
 ## 🛣️ API Route Patterns
@@ -211,11 +264,45 @@ For hierarchical relationships:
 @router.delete("/sections/{section_id}/enroll/{student_id}")
 ```
 
+### Route Ordering
+**Important**: Place specific routes before parameterized routes to avoid conflicts:
+```python
+# ✅ CORRECT - /sections/stats comes before /sections/{id}
+@router.get("/sections/stats")  # This must come first
+async def get_all_stats(): ...
+
+@router.get("/sections/{section_id}")  # This comes after
+async def get_section(section_id: str): ...
+
+# ❌ WRONG - /sections/stats will never be reached
+@router.get("/sections/{section_id}")
+@router.get("/sections/stats")  # This will be treated as section_id="stats"
+```
+
 ### Response Models
 Always declare response models for type safety:
 ```python
 @router.get("", response_model=List[ItemSchema])
 @router.post("", response_model=ItemSchema, status_code=201)
+```
+
+### Statistics Response Pattern
+For statistics endpoints, return consistent format:
+```python
+# Single item stats
+{
+    "item_id": "uuid",
+    "name": "Item Name",  # Include identifying info
+    "active_count": 25,
+    "inactive_count": 3,
+    "total_count": 28
+}
+
+# Bulk stats - array of same structure
+[
+    {"item_id": "...", "name": "...", "active_count": 25, ...},
+    {"item_id": "...", "name": "...", "active_count": 0, ...}  # Include zero counts
+]
 ```
 
 ### Partial Updates

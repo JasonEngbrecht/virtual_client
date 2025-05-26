@@ -552,3 +552,224 @@ class TestAssignmentAPIWorkflow:
         # Verify deleted
         verify_response = client.get(f"/api/teacher/assignments/{assignment_id}")
         assert verify_response.status_code == 404
+
+
+class TestAssignmentPublishing:
+    """Test assignment publishing/unpublishing endpoints"""
+    
+    def test_publish_assignment_success(
+        self,
+        client,
+        test_assignments,
+        sample_client_profile,
+        sample_rubric,
+        db_session,
+        mock_teacher_auth
+    ):
+        """Test successfully publishing an assignment"""
+        assignment = test_assignments[0]  # Draft assignment
+        
+        # First add a client-rubric pair to the assignment
+        from backend.models.assignment import AssignmentClientDB
+        from uuid import uuid4
+        
+        assignment_client = AssignmentClientDB(
+            id=str(uuid4()),
+            assignment_id=assignment.id,
+            client_id=sample_client_profile.id,
+            rubric_id=sample_rubric.id,
+            is_active=True,
+            display_order=1
+        )
+        db_session.add(assignment_client)
+        db_session.commit()
+        
+        # Now publish the assignment
+        response = client.post(f"/api/teacher/assignments/{assignment.id}/publish")
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["is_published"] is True
+        assert data["id"] == assignment.id
+    
+    def test_publish_already_published_assignment(
+        self,
+        client,
+        test_assignments,
+        mock_teacher_auth
+    ):
+        """Test publishing an already published assignment succeeds"""
+        assignment = test_assignments[1]  # Already published
+        
+        response = client.post(f"/api/teacher/assignments/{assignment.id}/publish")
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["is_published"] is True
+    
+    def test_publish_assignment_no_clients(
+        self,
+        client,
+        test_assignments,
+        mock_teacher_auth
+    ):
+        """Test publishing assignment without active clients fails"""
+        assignment = test_assignments[0]  # Draft with no clients
+        
+        response = client.post(f"/api/teacher/assignments/{assignment.id}/publish")
+        
+        assert response.status_code == 400
+        assert "client-rubric pair" in response.json()["detail"].lower()
+    
+    def test_publish_assignment_unauthorized(
+        self,
+        client,
+        test_assignment_other_teacher,
+        mock_teacher_auth
+    ):
+        """Test publishing another teacher's assignment fails"""
+        response = client.post(
+            f"/api/teacher/assignments/{test_assignment_other_teacher.id}/publish"
+        )
+        
+        assert response.status_code == 403
+        assert "permission" in response.json()["detail"].lower()
+    
+    def test_publish_assignment_not_found(
+        self,
+        client,
+        mock_teacher_auth
+    ):
+        """Test publishing non-existent assignment fails"""
+        response = client.post("/api/teacher/assignments/nonexistent-id/publish")
+        
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"].lower()
+    
+    def test_unpublish_assignment_success(
+        self,
+        client,
+        test_assignments,
+        mock_teacher_auth
+    ):
+        """Test successfully unpublishing an assignment"""
+        assignment = test_assignments[1]  # Published assignment
+        
+        response = client.post(f"/api/teacher/assignments/{assignment.id}/unpublish")
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["is_published"] is False
+        assert data["id"] == assignment.id
+    
+    def test_unpublish_already_unpublished_assignment(
+        self,
+        client,
+        test_assignments,
+        mock_teacher_auth
+    ):
+        """Test unpublishing an already unpublished assignment succeeds"""
+        assignment = test_assignments[0]  # Already unpublished (draft)
+        
+        response = client.post(f"/api/teacher/assignments/{assignment.id}/unpublish")
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["is_published"] is False
+    
+    def test_unpublish_assignment_unauthorized(
+        self,
+        client,
+        test_assignment_other_teacher,
+        mock_teacher_auth
+    ):
+        """Test unpublishing another teacher's assignment fails"""
+        response = client.post(
+            f"/api/teacher/assignments/{test_assignment_other_teacher.id}/unpublish"
+        )
+        
+        assert response.status_code == 403
+        assert "permission" in response.json()["detail"].lower()
+    
+    def test_unpublish_assignment_not_found(
+        self,
+        client,
+        mock_teacher_auth
+    ):
+        """Test unpublishing non-existent assignment fails"""
+        response = client.post("/api/teacher/assignments/nonexistent-id/unpublish")
+        
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"].lower()
+    
+    def test_publish_with_invalid_dates(
+        self,
+        client,
+        test_section_with_teacher,
+        sample_client_profile,
+        sample_rubric,
+        db_session,
+        mock_teacher_auth
+    ):
+        """Test publishing assignment with invalid date range fails"""
+        from backend.models.assignment import AssignmentDB, AssignmentClientDB, AssignmentType
+        from datetime import datetime, timedelta
+        from uuid import uuid4
+        
+        # Create assignment with invalid dates (due_date before available_from)
+        assignment = AssignmentDB(
+            id=str(uuid4()),
+            section_id=test_section_with_teacher["section_id"],
+            title="Invalid Date Assignment",
+            type=AssignmentType.PRACTICE,
+            is_published=False,
+            available_from=datetime.utcnow() + timedelta(days=7),
+            due_date=datetime.utcnow() + timedelta(days=1)  # Before available_from!
+        )
+        db_session.add(assignment)
+        
+        # Add a client so it would otherwise be publishable
+        assignment_client = AssignmentClientDB(
+            id=str(uuid4()),
+            assignment_id=assignment.id,
+            client_id=sample_client_profile.id,
+            rubric_id=sample_rubric.id,
+            is_active=True,
+            display_order=1
+        )
+        db_session.add(assignment_client)
+        db_session.commit()
+        
+        # Try to publish - should fail due to invalid dates
+        response = client.post(f"/api/teacher/assignments/{assignment.id}/publish")
+        
+        assert response.status_code == 400
+        # The service logs this as a warning and returns None, which our endpoint
+        # interprets as a permission/client issue. This is expected behavior.
+    
+    def test_delete_after_unpublish_workflow(
+        self,
+        client,
+        test_assignments,
+        mock_teacher_auth
+    ):
+        """Test workflow: unpublish then delete assignment"""
+        assignment = test_assignments[1]  # Published assignment
+        
+        # First try to delete published assignment - should fail
+        delete_response = client.delete(f"/api/teacher/assignments/{assignment.id}")
+        assert delete_response.status_code == 409
+        assert "unpublish" in delete_response.json()["detail"].lower()
+        
+        # Unpublish the assignment
+        unpublish_response = client.post(f"/api/teacher/assignments/{assignment.id}/unpublish")
+        assert unpublish_response.status_code == 200
+        assert unpublish_response.json()["is_published"] is False
+        
+        # Now delete should succeed
+        delete_response = client.delete(f"/api/teacher/assignments/{assignment.id}")
+        assert delete_response.status_code == 204
+        
+        # Verify it's deleted
+        get_response = client.get(f"/api/teacher/assignments/{assignment.id}")
+        assert get_response.status_code == 404

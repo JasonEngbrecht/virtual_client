@@ -662,6 +662,132 @@ async def delete_assignment(
     return None
 
 
+# POST /assignments/{assignment_id}/publish - Publish an assignment
+@router.post("/assignments/{assignment_id}/publish", response_model=Assignment)
+async def publish_assignment(
+    assignment_id: str,
+    db: Session = Depends(get_db),
+    teacher_id: str = Depends(get_current_teacher)
+):
+    """
+    Publish an assignment (make it visible to students).
+    
+    Only allows publishing if the assignment belongs to a section owned by the current teacher.
+    The assignment must have at least one active client-rubric pair to be published.
+    If the assignment has date constraints, they will be validated.
+    
+    Args:
+        assignment_id: The ID of the assignment to publish
+        
+    Returns:
+        Updated assignment with is_published set to True
+        
+    Raises:
+        404: Assignment not found
+        403: Assignment exists but belongs to another teacher's section
+        400: Assignment cannot be published (no active clients or invalid dates)
+    """
+    
+    # First check if assignment exists
+    assignment = assignment_service.get(db, assignment_id)
+    if not assignment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Assignment with ID '{assignment_id}' not found"
+        )
+    
+    # Publish the assignment with permission check
+    try:
+        published_assignment = assignment_service.publish_assignment(
+            db,
+            assignment_id,
+            teacher_id
+        )
+        
+        if not published_assignment:
+            # This means either permission denied or no active clients
+            # Check which one to provide appropriate error message
+            if not assignment_service.get(db, assignment_id, teacher_id):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You don't have permission to publish this assignment"
+                )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Cannot publish assignment without at least one active client-rubric pair"
+                )
+        
+        return published_assignment
+    except HTTPException:
+        # Re-raise HTTP exceptions without modification
+        raise
+    except Exception as e:
+        # Log the error in production
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while publishing the assignment"
+        )
+
+
+# POST /assignments/{assignment_id}/unpublish - Unpublish an assignment
+@router.post("/assignments/{assignment_id}/unpublish", response_model=Assignment)
+async def unpublish_assignment(
+    assignment_id: str,
+    db: Session = Depends(get_db),
+    teacher_id: str = Depends(get_current_teacher)
+):
+    """
+    Unpublish an assignment (hide it from students).
+    
+    Only allows unpublishing if the assignment belongs to a section owned by the current teacher.
+    This will make the assignment invisible to students but preserve all assignment data.
+    
+    Args:
+        assignment_id: The ID of the assignment to unpublish
+        
+    Returns:
+        Updated assignment with is_published set to False
+        
+    Raises:
+        404: Assignment not found
+        403: Assignment exists but belongs to another teacher's section
+    """
+    
+    # First check if assignment exists
+    assignment = assignment_service.get(db, assignment_id)
+    if not assignment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Assignment with ID '{assignment_id}' not found"
+        )
+    
+    # Unpublish the assignment with permission check
+    try:
+        unpublished_assignment = assignment_service.unpublish_assignment(
+            db,
+            assignment_id,
+            teacher_id
+        )
+        
+        if not unpublished_assignment:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to unpublish this assignment"
+            )
+        
+        return unpublished_assignment
+    except HTTPException:
+        # Re-raise HTTP exceptions without modification
+        raise
+    except Exception as e:
+        # Log the error in production
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while unpublishing the assignment"
+        )
+
+
 # ==================== ENROLLMENT ENDPOINTS ====================
 
 # GET /sections/{section_id}/roster - View enrolled students

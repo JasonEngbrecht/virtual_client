@@ -94,7 +94,7 @@ Build the complete data management layer for teachers.
   - Implement list/create/read/update/delete
   - Add response models and validation
   - Write integration tests
-- Part 5: Assignment Publishing (25-35 min)
+- ✅ Part 5: Assignment Publishing (30 min actual)
   - Add publishing/unpublishing endpoints
   - Implement date validation logic
   - Add draft vs published filtering
@@ -268,14 +268,14 @@ Production readiness.
 ## ⏱️ Timeline Summary
 
 ### Phase 1 Breakdown (Foundation)
-- **Completed**: 17.1 hours
+- **Completed**: 17.5 hours
   - 1.1 Database: 2.5 hours ✅
   - 1.2 Clients: 3.25 hours ✅
   - 1.3 Rubrics: 3 hours ✅
   - 1.4 Sections: 4.5 hours ✅
-  - 1.5 Assignments: 2.35 hours (Parts 1-4 of 8) 🎯
-- **Remaining**: 5.9-10.9 hours
-  - 1.5 Assignments: 1.65-2.65 hours (Parts 5-8)
+  - 1.5 Assignments: 2.5 hours (Parts 1-5 of 8) 🎯
+- **Remaining**: 5.5-10.5 hours
+  - 1.5 Assignments: 1.5-2.5 hours (Parts 6-8)
   - 1.6 Sessions: 4-5 hours
   - 1.7 Evaluation: 3-4 hours
 
@@ -290,10 +290,10 @@ Production readiness.
 
 ## 🎯 Current Status
 
-- **Active Sprint**: Phase 1.5 - Assignment Management (Parts 1-4 of 8 complete)
-- **Completed**: ~74% of Phase 1 (17.1 of 23 hours minimum)
+- **Active Sprint**: Phase 1.5 - Assignment Management (Parts 1-5 of 8 complete)
+- **Completed**: ~75% of Phase 1 (17.5 of 23 hours minimum)
 - **Previous Sprint**: Phase 1.4 Complete - All 8 parts ✅
-- **Next Part**: Phase 1.5 Part 5 - Assignment Publishing
+- **Next Part**: Phase 1.5 Part 6 - Assignment-Client Management
 
 ## 🚀 Key Milestones
 

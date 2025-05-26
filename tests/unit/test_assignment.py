@@ -325,14 +325,23 @@ class TestAssignmentSchemas:
             "rubric_id": str(uuid4()),
             "is_active": True,
             "display_order": 1,
-            "client_name": "Maria Rodriguez",
-            "rubric_name": "Initial Assessment Rubric"
+            "client": {
+                "id": str(uuid4()),
+                "name": "Maria Rodriguez",
+                "age": 35,
+                "gender": "Female"
+            },
+            "rubric": {
+                "id": str(uuid4()),
+                "name": "Initial Assessment Rubric",
+                "description": "Rubric for evaluating initial client assessments"
+            }
         }
         
         schema = AssignmentClient(**data)
         assert schema.is_active is True
-        assert schema.client_name == "Maria Rodriguez"
-        assert schema.rubric_name == "Initial Assessment Rubric"
+        assert schema.client_name == "Maria Rodriguez"  # Computed from client.name
+        assert schema.rubric_name == "Initial Assessment Rubric"  # Computed from rubric.name
 
 
 class TestSchemaValidation:

@@ -15,7 +15,7 @@ from ..services.enrollment_service import enrollment_service
 from ..models.client_profile import ClientProfile, ClientProfileCreate, ClientProfileUpdate
 from ..models.rubric import EvaluationRubric, EvaluationRubricCreate, EvaluationRubricUpdate
 from ..models.course_section import CourseSection, CourseSectionCreate, CourseSectionUpdate, SectionEnrollment, SectionEnrollmentCreate
-from ..models.assignment import Assignment, AssignmentCreate, AssignmentUpdate
+from ..models.assignment import Assignment, AssignmentCreate, AssignmentUpdate, AssignmentClient, AssignmentClientCreate
 from ..services.assignment_service import assignment_service
 
 # Create router instance
@@ -785,6 +785,439 @@ async def unpublish_assignment(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while unpublishing the assignment"
+        )
+
+
+# ==================== ASSIGNMENT-CLIENT MANAGEMENT ENDPOINTS ====================
+
+# GET /assignments/{assignment_id}/clients - List clients assigned to an assignment
+@router.get("/assignments/{assignment_id}/clients", response_model=List[AssignmentClient])
+async def list_assignment_clients(
+    assignment_id: str,
+    db: Session = Depends(get_db),
+    teacher_id: str = Depends(get_current_teacher)
+):
+    """
+    Get all clients assigned to an assignment.
+    
+    Returns both active and inactive client assignments to allow teachers
+    to see the complete assignment history.
+    
+    Args:
+        assignment_id: The ID of the assignment
+        
+    Returns:
+        List of assignment-client relationships with client and rubric details
+        
+    Raises:
+        404: Assignment not found
+        403: Assignment exists but belongs to another teacher's section
+    """
+    
+    # First check if assignment exists
+    assignment = assignment_service.get(db, assignment_id)
+    if not assignment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Assignment with ID '{assignment_id}' not found"
+        )
+    
+    # Get assignment clients with permission check
+    clients = assignment_service.get_assignment_clients(
+        db,
+        assignment_id,
+        teacher_id
+    )
+    
+    # If empty list returned, check if it's due to permissions
+    if not clients and not assignment_service.get(db, assignment_id, teacher_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to view clients for this assignment"
+        )
+    
+    # Convert SQLAlchemy objects to dictionaries for proper serialization
+    result = []
+    for client in clients:
+        client_dict = {
+            "id": client.id,
+            "assignment_id": client.assignment_id,
+            "client_id": client.client_id,
+            "rubric_id": client.rubric_id,
+            "is_active": client.is_active,
+            "display_order": client.display_order
+        }
+        
+        # Add nested client data if available
+        if hasattr(client, 'client') and client.client:
+            client_dict["client"] = {
+                "id": client.client.id,
+                "name": client.client.name,
+                "age": client.client.age,
+                "gender": client.client.gender,
+                "issues": client.client.issues
+            }
+        
+        # Add nested rubric data if available
+        if hasattr(client, 'rubric') and client.rubric:
+            client_dict["rubric"] = {
+                "id": client.rubric.id,
+                "name": client.rubric.name,
+                "description": client.rubric.description
+            }
+        
+        result.append(client_dict)
+    
+    return result
+
+
+# POST /assignments/{assignment_id}/clients - Add a client to an assignment
+@router.post("/assignments/{assignment_id}/clients", response_model=AssignmentClient, status_code=201)
+async def add_client_to_assignment(
+    assignment_id: str,
+    client_data: AssignmentClientCreate,
+    db: Session = Depends(get_db),
+    teacher_id: str = Depends(get_current_teacher)
+):
+    """
+    Add a client with a rubric to an assignment.
+    
+    If the client was previously assigned and removed (soft deleted),
+    this will reactivate the assignment with the new rubric.
+    
+    Args:
+        assignment_id: The ID of the assignment
+        client_data: Client ID, rubric ID, and optional display order
+        
+    Returns:
+        Created or reactivated assignment-client relationship
+        
+    Raises:
+        404: Assignment not found
+        403: Assignment exists but belongs to another teacher's section
+        400: Client or rubric does not belong to teacher, or client already active
+    """
+    
+    # First check if assignment exists
+    assignment = assignment_service.get(db, assignment_id)
+    if not assignment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Assignment with ID '{assignment_id}' not found"
+        )
+    
+    # Add client to assignment with permission and validation checks
+    try:
+        assignment_client = assignment_service.add_client_to_assignment(
+            db,
+            assignment_id=assignment_id,
+            client_id=client_data.client_id,
+            rubric_id=client_data.rubric_id,
+            teacher_id=teacher_id,
+            display_order=client_data.display_order
+        )
+        
+        if not assignment_client:
+            # This means either permission denied or validation failed
+            # Check which one to provide appropriate error message
+            if not assignment_service.get(db, assignment_id, teacher_id):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You don't have permission to manage clients for this assignment"
+                )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid client or rubric. Please ensure both belong to you."
+                )
+        
+        # Convert to dict for proper serialization
+        result = {
+            "id": assignment_client.id,
+            "assignment_id": assignment_client.assignment_id,
+            "client_id": assignment_client.client_id,
+            "rubric_id": assignment_client.rubric_id,
+            "is_active": assignment_client.is_active,
+            "display_order": assignment_client.display_order
+        }
+        
+        # Add nested client data if available
+        if hasattr(assignment_client, 'client') and assignment_client.client:
+            result["client"] = {
+                "id": assignment_client.client.id,
+                "name": assignment_client.client.name,
+                "age": assignment_client.client.age,
+                "gender": assignment_client.client.gender,
+                "issues": assignment_client.client.issues
+            }
+        
+        # Add nested rubric data if available
+        if hasattr(assignment_client, 'rubric') and assignment_client.rubric:
+            result["rubric"] = {
+                "id": assignment_client.rubric.id,
+                "name": assignment_client.rubric.name,
+                "description": assignment_client.rubric.description
+            }
+        
+        return result
+    except HTTPException:
+        # Re-raise HTTP exceptions without modification
+        raise
+    except Exception as e:
+        # Log the error in production
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while adding the client to the assignment"
+        )
+
+
+# PUT /assignments/{assignment_id}/clients/{client_id} - Update assignment client rubric
+@router.put("/assignments/{assignment_id}/clients/{client_id}", response_model=AssignmentClient)
+async def update_assignment_client(
+    assignment_id: str,
+    client_id: str,
+    rubric_update: Dict[str, str],  # Expects {"rubric_id": "new-rubric-id"}
+    db: Session = Depends(get_db),
+    teacher_id: str = Depends(get_current_teacher)
+):
+    """
+    Update the rubric for an assignment-client relationship.
+    
+    Only updates active relationships. If the relationship is soft-deleted,
+    use the add endpoint to reactivate it.
+    
+    Args:
+        assignment_id: The ID of the assignment
+        client_id: The ID of the client
+        rubric_update: Dictionary with new rubric_id
+        
+    Returns:
+        Updated assignment-client relationship
+        
+    Raises:
+        404: Assignment or client relationship not found
+        403: Assignment exists but belongs to another teacher's section
+        400: Invalid rubric ID or rubric does not belong to teacher
+    """
+    
+    # Validate request body
+    if "rubric_id" not in rubric_update:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Request body must include 'rubric_id'"
+        )
+    
+    # First check if assignment exists
+    assignment = assignment_service.get(db, assignment_id)
+    if not assignment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Assignment with ID '{assignment_id}' not found"
+        )
+    
+    # Update the assignment client with permission and validation checks
+    try:
+        updated_client = assignment_service.update_assignment_client(
+            db,
+            assignment_id=assignment_id,
+            client_id=client_id,
+            rubric_id=rubric_update["rubric_id"],
+            teacher_id=teacher_id
+        )
+        
+        if not updated_client:
+            # This means either permission denied, relationship not found, or validation failed
+            # Check which one to provide appropriate error message
+            if not assignment_service.get(db, assignment_id, teacher_id):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You don't have permission to manage clients for this assignment"
+                )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"No active assignment found for client '{client_id}' in this assignment"
+                )
+        
+        # Convert to dict for proper serialization
+        result = {
+            "id": updated_client.id,
+            "assignment_id": updated_client.assignment_id,
+            "client_id": updated_client.client_id,
+            "rubric_id": updated_client.rubric_id,
+            "is_active": updated_client.is_active,
+            "display_order": updated_client.display_order
+        }
+        
+        # Add nested client data if available
+        if hasattr(updated_client, 'client') and updated_client.client:
+            result["client"] = {
+                "id": updated_client.client.id,
+                "name": updated_client.client.name,
+                "age": updated_client.client.age,
+                "gender": updated_client.client.gender,
+                "issues": updated_client.client.issues
+            }
+        
+        # Add nested rubric data if available
+        if hasattr(updated_client, 'rubric') and updated_client.rubric:
+            result["rubric"] = {
+                "id": updated_client.rubric.id,
+                "name": updated_client.rubric.name,
+                "description": updated_client.rubric.description
+            }
+        
+        return result
+    except HTTPException:
+        # Re-raise HTTP exceptions without modification
+        raise
+    except Exception as e:
+        # Log the error in production
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while updating the assignment client"
+        )
+
+
+# DELETE /assignments/{assignment_id}/clients/{client_id} - Remove client from assignment
+@router.delete("/assignments/{assignment_id}/clients/{client_id}", status_code=204)
+async def remove_client_from_assignment(
+    assignment_id: str,
+    client_id: str,
+    db: Session = Depends(get_db),
+    teacher_id: str = Depends(get_current_teacher)
+):
+    """
+    Remove a client from an assignment (soft delete).
+    
+    The relationship is soft-deleted to preserve history. The client
+    can be re-added later if needed.
+    
+    Args:
+        assignment_id: The ID of the assignment
+        client_id: The ID of the client to remove
+        
+    Returns:
+        No content (204) on successful removal
+        
+    Raises:
+        404: Assignment or client relationship not found
+        403: Assignment exists but belongs to another teacher's section
+    """
+    
+    # First check if assignment exists
+    assignment = assignment_service.get(db, assignment_id)
+    if not assignment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Assignment with ID '{assignment_id}' not found"
+        )
+    
+    # Remove the client with permission check
+    try:
+        success = assignment_service.remove_client_from_assignment(
+            db,
+            assignment_id=assignment_id,
+            client_id=client_id,
+            teacher_id=teacher_id
+        )
+        
+        if not success:
+            # This means either permission denied or relationship not found
+            # Check which one to provide appropriate error message
+            if not assignment_service.get(db, assignment_id, teacher_id):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You don't have permission to manage clients for this assignment"
+                )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"No active assignment found for client '{client_id}' in this assignment"
+                )
+    except HTTPException:
+        # Re-raise HTTP exceptions without modification
+        raise
+    except Exception as e:
+        # Log the error in production
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while removing the client from the assignment"
+        )
+    
+    # Return 204 No Content on successful removal
+    return None
+
+
+# POST /assignments/{assignment_id}/clients/bulk - Bulk add clients to assignment
+@router.post("/assignments/{assignment_id}/clients/bulk")
+async def bulk_add_clients_to_assignment(
+    assignment_id: str,
+    clients_data: List[AssignmentClientCreate],
+    db: Session = Depends(get_db),
+    teacher_id: str = Depends(get_current_teacher)
+):
+    """
+    Add multiple clients to an assignment in one operation.
+    
+    This is more efficient than making multiple individual requests.
+    The operation will attempt to add all clients and report which
+    ones succeeded and which failed.
+    
+    Args:
+        assignment_id: The ID of the assignment
+        clients_data: List of client-rubric pairs to add
+        
+    Returns:
+        Dictionary with 'success' and 'failed' lists of client IDs
+        
+    Raises:
+        404: Assignment not found
+        403: Assignment exists but belongs to another teacher's section
+        400: Empty client list provided
+    """
+    
+    # Validate request
+    if not clients_data:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="At least one client must be provided"
+        )
+    
+    # First check if assignment exists
+    assignment = assignment_service.get(db, assignment_id)
+    if not assignment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Assignment with ID '{assignment_id}' not found"
+        )
+    
+    # Bulk add clients with permission and validation checks
+    try:
+        result = assignment_service.bulk_add_clients(
+            db,
+            assignment_id=assignment_id,
+            clients_data=clients_data,
+            teacher_id=teacher_id
+        )
+        
+        # Check if all failed due to permissions
+        if not result["success"] and len(result["failed"]) == len(clients_data):
+            if not assignment_service.get(db, assignment_id, teacher_id):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You don't have permission to manage clients for this assignment"
+                )
+        
+        return result
+    except HTTPException:
+        # Re-raise HTTP exceptions without modification
+        raise
+    except Exception as e:
+        # Log the error in production
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred during bulk client addition"
         )
 
 

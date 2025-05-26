@@ -119,6 +119,242 @@ def test_enrollment(db_session, test_section):
 
 
 @pytest.fixture
+def test_assignment_with_clients(db_session, test_section_with_teacher, sample_client_profile, sample_rubric):
+    """Create a test assignment with clients already assigned"""
+    # Import here to avoid import order issues
+    from backend.models.assignment import AssignmentDB, AssignmentClientDB, AssignmentType
+    from backend.models.client_profile import ClientProfileDB
+    from backend.models.rubric import EvaluationRubricDB
+    
+    # Create assignment
+    assignment = AssignmentDB(
+        id=str(uuid4()),
+        section_id=test_section_with_teacher["section_id"],
+        title="Assignment with Clients",
+        description="Test assignment with pre-assigned clients",
+        type=AssignmentType.PRACTICE,
+        is_published=False
+    )
+    db_session.add(assignment)
+    
+    # Create additional client for testing
+    client2 = ClientProfileDB(
+        id=str(uuid4()),
+        name="Second Test Client",
+        age=45,
+        race="Asian",
+        gender="Male",
+        socioeconomic_status="Working class",
+        issues=["depression"],
+        background_story="Second client background",
+        personality_traits=["reserved"],
+        communication_style="indirect",
+        created_by="teacher-123"
+    )
+    db_session.add(client2)
+    
+    # Create additional rubric
+    rubric2 = EvaluationRubricDB(
+        id=str(uuid4()),
+        name="Second Test Rubric",
+        description="Another test rubric",
+        criteria=[
+            {
+                "name": "Assessment",
+                "description": "Assessment skills",
+                "weight": 1.0,
+                "evaluation_points": ["Complete assessment"],
+                "scoring_levels": {"excellent": 4, "good": 3, "satisfactory": 2, "needs_improvement": 1}
+            }
+        ],
+        total_weight=1.0,
+        created_by="teacher-123"
+    )
+    db_session.add(rubric2)
+    
+    # Create assignment-client relationships
+    assignment_client1 = AssignmentClientDB(
+        id=str(uuid4()),
+        assignment_id=assignment.id,
+        client_id=sample_client_profile.id,
+        rubric_id=sample_rubric.id,
+        is_active=True,
+        display_order=1
+    )
+    db_session.add(assignment_client1)
+    
+    assignment_client2 = AssignmentClientDB(
+        id=str(uuid4()),
+        assignment_id=assignment.id,
+        client_id=client2.id,
+        rubric_id=rubric2.id,
+        is_active=True,
+        display_order=2
+    )
+    db_session.add(assignment_client2)
+    
+    db_session.commit()
+    db_session.refresh(assignment)
+    db_session.refresh(sample_client_profile)
+    db_session.refresh(client2)
+    
+    return assignment.id, [sample_client_profile, client2]
+
+
+@pytest.fixture
+def test_assignment_with_inactive_client(db_session, test_section_with_teacher, sample_client_profile, sample_rubric):
+    """Create a test assignment with a soft-deleted client"""
+    # Import here to avoid import order issues
+    from backend.models.assignment import AssignmentDB, AssignmentClientDB, AssignmentType
+    
+    # Create assignment
+    assignment = AssignmentDB(
+        id=str(uuid4()),
+        section_id=test_section_with_teacher["section_id"],
+        title="Assignment with Inactive Client",
+        description="Test assignment with soft-deleted client",
+        type=AssignmentType.PRACTICE,
+        is_published=False
+    )
+    db_session.add(assignment)
+    
+    # Create inactive assignment-client relationship
+    assignment_client = AssignmentClientDB(
+        id=str(uuid4()),
+        assignment_id=assignment.id,
+        client_id=sample_client_profile.id,
+        rubric_id=sample_rubric.id,
+        is_active=False,  # Soft deleted
+        display_order=1
+    )
+    db_session.add(assignment_client)
+    
+    db_session.commit()
+    db_session.refresh(assignment)
+    db_session.refresh(sample_client_profile)
+    
+    return assignment.id, sample_client_profile
+
+
+@pytest.fixture
+def test_client_other_teacher(db_session):
+    """Create a client owned by another teacher"""
+    # Import here to avoid import order issues
+    from backend.models.client_profile import ClientProfileDB
+    
+    client = ClientProfileDB(
+        id=str(uuid4()),
+        name="Other Teacher's Client",
+        age=30,
+        race="Hispanic",
+        gender="Non-binary",
+        socioeconomic_status="Upper class",
+        issues=["substance_abuse"],
+        background_story="Client of another teacher",
+        personality_traits=["defensive"],
+        communication_style="assertive",
+        created_by="other-teacher-456"  # Different teacher
+    )
+    db_session.add(client)
+    db_session.commit()
+    db_session.refresh(client)
+    return client
+
+
+@pytest.fixture
+def test_rubric_other_teacher(db_session):
+    """Create a rubric owned by another teacher"""
+    # Import here to avoid import order issues
+    from backend.models.rubric import EvaluationRubricDB
+    
+    rubric = EvaluationRubricDB(
+        id=str(uuid4()),
+        name="Other Teacher's Rubric",
+        description="Rubric owned by another teacher",
+        criteria=[
+            {
+                "name": "Ethics",
+                "description": "Ethical considerations",
+                "weight": 1.0,
+                "evaluation_points": ["Maintains boundaries"],
+                "scoring_levels": {"excellent": 4, "good": 3, "satisfactory": 2, "needs_improvement": 1}
+            }
+        ],
+        total_weight=1.0,
+        created_by="other-teacher-456"  # Different teacher
+    )
+    db_session.add(rubric)
+    db_session.commit()
+    db_session.refresh(rubric)
+    return rubric
+
+
+@pytest.fixture
+def test_multiple_clients(db_session):
+    """Create multiple clients for bulk operations"""
+    # Import here to avoid import order issues
+    from backend.models.client_profile import ClientProfileDB
+    
+    clients = []
+    for i in range(5):
+        client = ClientProfileDB(
+            id=str(uuid4()),
+            name=f"Bulk Test Client {i+1}",
+            age=25 + i * 5,
+            race="Diverse",
+            gender="Various",
+            socioeconomic_status="Various",
+            issues=["general_counseling"],
+            background_story=f"Bulk test client {i+1} background",
+            personality_traits=["cooperative"],
+            communication_style="varied",
+            created_by="teacher-123"  # Owned by test teacher
+        )
+        db_session.add(client)
+        clients.append(client)
+    
+    db_session.commit()
+    for client in clients:
+        db_session.refresh(client)
+    
+    return clients
+
+
+@pytest.fixture
+def test_multiple_rubrics(db_session):
+    """Create multiple rubrics for bulk operations"""
+    # Import here to avoid import order issues
+    from backend.models.rubric import EvaluationRubricDB
+    
+    rubrics = []
+    for i in range(5):
+        rubric = EvaluationRubricDB(
+            id=str(uuid4()),
+            name=f"Bulk Test Rubric {i+1}",
+            description=f"Bulk test rubric {i+1} description",
+            criteria=[
+                {
+                    "name": f"Criterion {i+1}",
+                    "description": f"Test criterion {i+1}",
+                    "weight": 1.0,
+                    "evaluation_points": [f"Point {i+1}"],
+                    "scoring_levels": {"excellent": 4, "good": 3, "satisfactory": 2, "needs_improvement": 1}
+                }
+            ],
+            total_weight=1.0,
+            created_by="teacher-123"  # Owned by test teacher
+        )
+        db_session.add(rubric)
+        rubrics.append(rubric)
+    
+    db_session.commit()
+    for rubric in rubrics:
+        db_session.refresh(rubric)
+    
+    return rubrics
+
+
+@pytest.fixture
 def test_section_with_teacher(db_session):
     """Create a test course section and return teacher/section info"""
     # Import here to avoid import order issues

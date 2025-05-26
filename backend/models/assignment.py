@@ -7,13 +7,13 @@ and can link multiple clients with different rubrics for evaluation.
 """
 
 from datetime import datetime
-from typing import Optional, Dict, Any, List, Literal
+from typing import Optional, Dict, Any, List, Literal, TYPE_CHECKING
 from uuid import uuid4
 from enum import Enum
 
 from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Text, JSON, Integer, Enum as SQLEnum
 from sqlalchemy.orm import relationship
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator, computed_field
 
 from ..services.database import Base
 
@@ -67,6 +67,8 @@ class AssignmentClientDB(Base):
     
     # Relationships
     assignment = relationship("AssignmentDB", back_populates="assignment_clients")
+    client = relationship("ClientProfileDB", foreign_keys=[client_id])
+    rubric = relationship("EvaluationRubricDB", foreign_keys=[rubric_id])
     
     def __repr__(self):
         return f"<AssignmentClient(id={self.id}, assignment_id='{self.assignment_id}', client_id='{self.client_id}')>"
@@ -266,9 +268,21 @@ class AssignmentClient(BaseModel):
     is_active: bool = Field(..., description="Whether this relationship is active")
     display_order: int = Field(..., description="Display order for students")
     
-    # Optional fields for enhanced responses
-    client_name: Optional[str] = Field(None, description="Name of the client")
-    rubric_name: Optional[str] = Field(None, description="Name of the rubric")
+    # Optional fields for enhanced responses - will be populated from relationships
+    client: Optional[Dict[str, Any]] = Field(default=None, description="Client profile details")
+    rubric: Optional[Dict[str, Any]] = Field(default=None, description="Rubric details")
+    
+    @computed_field
+    @property
+    def client_name(self) -> Optional[str]:
+        """Get client name from nested client object for backwards compatibility"""
+        return self.client.get('name') if self.client else None
+    
+    @computed_field
+    @property
+    def rubric_name(self) -> Optional[str]:
+        """Get rubric name from nested rubric object for backwards compatibility"""
+        return self.rubric.get('name') if self.rubric else None
     
     model_config = ConfigDict(
         from_attributes=True,
@@ -280,8 +294,17 @@ class AssignmentClient(BaseModel):
                 "rubric_id": "rubric-456",
                 "is_active": True,
                 "display_order": 1,
-                "client_name": "Maria Rodriguez",
-                "rubric_name": "Initial Assessment Rubric"
+                "client": {
+                    "id": "client-123",
+                    "name": "Maria Rodriguez",
+                    "age": 35,
+                    "gender": "Female"
+                },
+                "rubric": {
+                    "id": "rubric-456",
+                    "name": "Initial Assessment Rubric",
+                    "description": "Rubric for evaluating initial client assessments"
+                }
             }
         }
     )

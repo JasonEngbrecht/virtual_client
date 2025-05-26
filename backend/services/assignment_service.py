@@ -9,11 +9,15 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, case
 from ..models.assignment import (
     AssignmentDB, AssignmentClientDB, AssignmentCreate, AssignmentUpdate,
-    AssignmentType
+    AssignmentType, AssignmentClientCreate
 )
 from ..models.course_section import CourseSectionDB
+from ..models.client_profile import ClientProfileDB
+from ..models.rubric import EvaluationRubricDB
 from .database import BaseCRUD
 from .section_service import section_service
+from .client_service import client_service
+from .rubric_service import rubric_service
 import logging
 
 logger = logging.getLogger(__name__)
@@ -236,6 +240,313 @@ class AssignmentService(BaseCRUD[AssignmentDB]):
         
         logger.debug(f"Retrieved {len(assignments)} assignments for teacher {teacher_id}")
         return assignments
+    
+    def get_assignment_clients(
+        self,
+        db: Session,
+        assignment_id: str,
+        teacher_id: str
+    ) -> List[AssignmentClientDB]:
+        """
+        Get all clients assigned to an assignment
+        
+        Args:
+            db: Database session
+            assignment_id: ID of the assignment
+            teacher_id: ID of the teacher
+            
+        Returns:
+            List of assignment-client relationships with client and rubric details
+            
+        Business Rules:
+            - Teacher must own the section
+            - Returns both active and inactive clients
+        """
+        assignment = self.get(db, assignment_id, teacher_id)
+        if not assignment:
+            return []
+        
+        # Get assignment clients with joined client and rubric data
+        clients = db.query(AssignmentClientDB).options(
+            joinedload(AssignmentClientDB.client),
+            joinedload(AssignmentClientDB.rubric)
+        ).filter(
+            AssignmentClientDB.assignment_id == assignment_id
+        ).order_by(
+            AssignmentClientDB.display_order.asc(),
+            AssignmentClientDB.id.asc()
+        ).all()
+        
+        logger.debug(f"Retrieved {len(clients)} clients for assignment {assignment_id}")
+        return clients
+    
+    def add_client_to_assignment(
+        self,
+        db: Session,
+        assignment_id: str,
+        client_id: str,
+        rubric_id: str,
+        teacher_id: str,
+        display_order: Optional[int] = None
+    ) -> Optional[AssignmentClientDB]:
+        """
+        Add a client with rubric to an assignment
+        
+        Args:
+            db: Database session
+            assignment_id: ID of the assignment
+            client_id: ID of the client to add
+            rubric_id: ID of the rubric to use
+            teacher_id: ID of the teacher
+            display_order: Optional display order
+            
+        Returns:
+            Created assignment-client relationship or None if unauthorized
+            
+        Business Rules:
+            - Teacher must own the section
+            - Client must belong to teacher
+            - Rubric must belong to teacher
+            - Reactivates if soft-deleted relationship exists
+        """
+        # Check assignment ownership
+        assignment = self.get(db, assignment_id, teacher_id)
+        if not assignment:
+            logger.warning(f"Teacher {teacher_id} cannot access assignment {assignment_id}")
+            return None
+        
+        # Validate client belongs to teacher
+        client = client_service.get(db, client_id)
+        if not client or client.created_by != teacher_id:
+            logger.warning(f"Client {client_id} does not belong to teacher {teacher_id}")
+            return None
+        
+        # Validate rubric belongs to teacher
+        rubric = rubric_service.get(db, rubric_id)
+        if not rubric or rubric.created_by != teacher_id:
+            logger.warning(f"Rubric {rubric_id} does not belong to teacher {teacher_id}")
+            return None
+        
+        # Check if relationship already exists
+        existing = db.query(AssignmentClientDB).filter(
+            AssignmentClientDB.assignment_id == assignment_id,
+            AssignmentClientDB.client_id == client_id
+        ).first()
+        
+        if existing:
+            # Reactivate if soft-deleted
+            if not existing.is_active:
+                existing.is_active = True
+                existing.rubric_id = rubric_id
+                if display_order is not None:
+                    existing.display_order = display_order
+                db.commit()
+                db.refresh(existing)
+                logger.info(f"Reactivated client {client_id} for assignment {assignment_id}")
+                return existing
+            else:
+                logger.warning(f"Client {client_id} already active for assignment {assignment_id}")
+                return existing
+        
+        # Create new relationship
+        assignment_client = AssignmentClientDB(
+            assignment_id=assignment_id,
+            client_id=client_id,
+            rubric_id=rubric_id,
+            display_order=display_order,
+            is_active=True
+        )
+        db.add(assignment_client)
+        db.commit()
+        db.refresh(assignment_client)
+        
+        logger.info(f"Added client {client_id} to assignment {assignment_id}")
+        return assignment_client
+    
+    def update_assignment_client(
+        self,
+        db: Session,
+        assignment_id: str,
+        client_id: str,
+        rubric_id: str,
+        teacher_id: str
+    ) -> Optional[AssignmentClientDB]:
+        """
+        Update the rubric for an assignment-client relationship
+        
+        Args:
+            db: Database session
+            assignment_id: ID of the assignment
+            client_id: ID of the client
+            rubric_id: ID of the new rubric
+            teacher_id: ID of the teacher
+            
+        Returns:
+            Updated relationship or None if not found/unauthorized
+            
+        Business Rules:
+            - Teacher must own the section
+            - New rubric must belong to teacher
+            - Only updates active relationships
+        """
+        # Check assignment ownership
+        assignment = self.get(db, assignment_id, teacher_id)
+        if not assignment:
+            return None
+        
+        # Validate new rubric belongs to teacher
+        rubric = rubric_service.get(db, rubric_id)
+        if not rubric or rubric.created_by != teacher_id:
+            logger.warning(f"Rubric {rubric_id} does not belong to teacher {teacher_id}")
+            return None
+        
+        # Find the relationship
+        assignment_client = db.query(AssignmentClientDB).filter(
+            AssignmentClientDB.assignment_id == assignment_id,
+            AssignmentClientDB.client_id == client_id,
+            AssignmentClientDB.is_active == True
+        ).first()
+        
+        if not assignment_client:
+            logger.warning(f"No active relationship found for assignment {assignment_id} and client {client_id}")
+            return None
+        
+        # Update the rubric
+        assignment_client.rubric_id = rubric_id
+        db.commit()
+        db.refresh(assignment_client)
+        
+        logger.info(f"Updated rubric for client {client_id} in assignment {assignment_id}")
+        return assignment_client
+    
+    def remove_client_from_assignment(
+        self,
+        db: Session,
+        assignment_id: str,
+        client_id: str,
+        teacher_id: str
+    ) -> bool:
+        """
+        Remove a client from an assignment (soft delete)
+        
+        Args:
+            db: Database session
+            assignment_id: ID of the assignment
+            client_id: ID of the client to remove
+            teacher_id: ID of the teacher
+            
+        Returns:
+            True if removed, False if not found/unauthorized
+            
+        Business Rules:
+            - Teacher must own the section
+            - Soft deletes by setting is_active to False
+        """
+        # Check assignment ownership
+        assignment = self.get(db, assignment_id, teacher_id)
+        if not assignment:
+            return False
+        
+        # Find the relationship
+        assignment_client = db.query(AssignmentClientDB).filter(
+            AssignmentClientDB.assignment_id == assignment_id,
+            AssignmentClientDB.client_id == client_id,
+            AssignmentClientDB.is_active == True
+        ).first()
+        
+        if not assignment_client:
+            logger.warning(f"No active relationship found for assignment {assignment_id} and client {client_id}")
+            return False
+        
+        # Soft delete
+        assignment_client.is_active = False
+        db.commit()
+        
+        logger.info(f"Removed client {client_id} from assignment {assignment_id}")
+        return True
+    
+    def bulk_add_clients(
+        self,
+        db: Session,
+        assignment_id: str,
+        clients_data: List[AssignmentClientCreate],
+        teacher_id: str
+    ) -> Dict[str, List[str]]:
+        """
+        Add multiple clients to an assignment in one operation
+        
+        Args:
+            db: Database session
+            assignment_id: ID of the assignment
+            clients_data: List of client-rubric pairs to add
+            teacher_id: ID of the teacher
+            
+        Returns:
+            Dictionary with 'success' and 'failed' lists of client IDs
+            
+        Business Rules:
+            - Teacher must own the section
+            - All clients and rubrics must belong to teacher
+            - Reactivates soft-deleted relationships
+            - Continues on individual failures
+        """
+        # Check assignment ownership
+        assignment = self.get(db, assignment_id, teacher_id)
+        if not assignment:
+            logger.warning(f"Teacher {teacher_id} cannot access assignment {assignment_id}")
+            return {"success": [], "failed": [client.client_id for client in clients_data]}
+        
+        # Pre-validate all clients and rubrics belong to teacher
+        client_ids = {client.client_id for client in clients_data}
+        rubric_ids = {client.rubric_id for client in clients_data}
+        
+        # Fetch all clients
+        valid_clients = db.query(ClientProfileDB).filter(
+            ClientProfileDB.id.in_(client_ids),
+            ClientProfileDB.created_by == teacher_id
+        ).all()
+        valid_client_ids = {client.id for client in valid_clients}
+        
+        # Fetch all rubrics
+        valid_rubrics = db.query(EvaluationRubricDB).filter(
+            EvaluationRubricDB.id.in_(rubric_ids),
+            EvaluationRubricDB.created_by == teacher_id
+        ).all()
+        valid_rubric_ids = {rubric.id for rubric in valid_rubrics}
+        
+        # Process each client
+        success = []
+        failed = []
+        
+        for client_data in clients_data:
+            # Validate client and rubric
+            if (client_data.client_id not in valid_client_ids or 
+                client_data.rubric_id not in valid_rubric_ids):
+                failed.append(client_data.client_id)
+                continue
+            
+            # Try to add the client
+            try:
+                result = self.add_client_to_assignment(
+                    db=db,
+                    assignment_id=assignment_id,
+                    client_id=client_data.client_id,
+                    rubric_id=client_data.rubric_id,
+                    teacher_id=teacher_id,
+                    display_order=client_data.display_order
+                )
+                
+                if result:
+                    success.append(client_data.client_id)
+                else:
+                    failed.append(client_data.client_id)
+                    
+            except Exception as e:
+                logger.error(f"Error adding client {client_data.client_id}: {str(e)}")
+                failed.append(client_data.client_id)
+        
+        logger.info(f"Bulk add to assignment {assignment_id}: {len(success)} success, {len(failed)} failed")
+        return {"success": success, "failed": failed}
     
     def list_section_assignments(
         self,

@@ -1,24 +1,28 @@
 # Current Sprint: Phase 1.5 - Assignment Management
 
 ## 📍 Session Handoff
-**Last Updated**: 2025-05-25 22:45
-**Last Completed**: Phase 1.5 Part 5 - Assignment Publishing ✅
-**Ready to Start**: Phase 1.5 Part 6 - Assignment-Client Management
-**Tests Passing**: All tests passing ✅ (37 assignment API tests total)
+**Last Updated**: 2025-11-12 10:30
+**Last Completed**: Fixed test failures from Part 6 implementation
+**Ready to Start**: Phase 1.5 Part 7 - Student Assignment Viewing
+**Tests Passing**: All tests passing ✅ (284 total tests)
 **Notes for Next Session**: 
-- Parts 1-5 complete: Database models, junction model, service layer, teacher endpoints, and publishing endpoints
-- Added 2 publishing endpoints (publish/unpublish) with 11 comprehensive tests
-- All publishing business logic handled by existing service methods
-- Ready to implement assignment-client management endpoints (add/remove clients with rubrics)
-- CLEANUP COMPLETE: All temporary test files removed
+- Parts 1-6 complete: Database models, junction model, service layer, teacher endpoints, publishing, and client management
+- Fixed 2 test failures:
+  - Added missing computed_field import in assignment.py
+  - Fixed test_add_duplicate_client_already_active to use valid rubric
+  - Fixed test_assignment_client_response_schema to properly test computed fields
+- Created cleanup_temp_files.py to remove temporary test files
+- All 62 assignment API tests now passing (37 CRUD/publishing + 25 client management)
+- Ready to implement student assignment viewing endpoints
+- IMPORTANT: Run cleanup_temp_files.py and delete it before implementing Part 7
 
 ## 📍 Where We Are in the Journey
 - **Previous Phase**: 1.4 Course Section Management ✅ (All 8 parts complete)
-- **Current Phase**: 1.5 Assignment Management (Part 5 of 8 complete)
-- **Overall Progress**: ~75% of Phase 1 complete (17.5 of 23 hours minimum)
+- **Current Phase**: 1.5 Assignment Management (Part 6 of 8 complete)
+- **Overall Progress**: ~78% of Phase 1 complete (18 of 23 hours minimum)
 - **See**: [`PROJECT_ROADMAP.md`](PROJECT_ROADMAP.md) for full context
 
-**Status**: In Progress | **Estimated Time**: 4-5 hours | **Completed So Far**: ~2.5 hours
+**Status**: In Progress | **Estimated Time**: 4-5 hours | **Completed So Far**: ~3 hours
 
 ## 🎯 Sprint Goal
 Implement assignment management within course sections, allowing teachers to create assignments that link clients and rubrics, with support for both practice and graded modes.
@@ -55,11 +59,11 @@ Implement assignment management within course sections, allowing teachers to cre
 - [x] Add draft vs published filtering
 - [x] Write tests for state transitions
 
-### Part 6: Assignment-Client Management (35-45 min)
-- [ ] Add endpoints for managing assignment clients
-- [ ] Implement add/remove client with rubric
-- [ ] Add bulk operations support
-- [ ] Write integration tests
+### Part 6: Assignment-Client Management (35-45 min) ✅
+- [x] Add endpoints for managing assignment clients
+- [x] Implement add/remove client with rubric
+- [x] Add bulk operations support
+- [x] Write integration tests
 
 ### Part 7: Student Assignment Viewing (30-40 min)
 - [ ] Add student endpoints for assignments
@@ -149,19 +153,20 @@ From Phase 1.4:
 ## 🧪 Tests to Run
 
 ### New Tests Created
-- `tests/integration/test_assignment_api.py` - 37 tests total (26 CRUD + 11 publishing)
+- `tests/integration/test_assignment_api.py` - 62 tests total (26 CRUD + 11 publishing + 25 client management)
   ```bash
   python -m pytest tests/integration/test_assignment_api.py -v
   ```
   - TestAssignmentAPI: 26 tests for CRUD operations
   - TestAssignmentPublishing: 11 tests for publish/unpublish endpoints
+  - TestAssignmentClientManagement: 25 tests for client management endpoints
 
 ### Critical Regression Tests
 - Run all tests to ensure no regressions:
   ```bash
   python run_tests.py
   ```
-- Total test count should be 256+ (219 previous + 37 new)
+- Total test count should be 284 (222 previous + 62 assignment tests)
 
 ## ✅ Definition of Done
 - [x] Part 1: Database Models ✅
@@ -169,7 +174,7 @@ From Phase 1.4:
 - [x] Part 3: Service Core ✅
 - [x] Part 4: Teacher Endpoints ✅
 - [x] Part 5: Publishing ✅
-- [ ] Part 6: Assignment-Client Management
+- [x] Part 6: Assignment-Client Management ✅
 - [ ] Part 7: Student Assignment Viewing
 - [ ] Part 8: Testing & Documentation
 - [ ] All tests passing (maintain 80%+ coverage)

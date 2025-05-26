@@ -142,6 +142,27 @@ teacher_id: str = mapped_column(String, ForeignKey("users.id"))
 teacher = relationship("User", back_populates="sections")
 ```
 
+### Model Ownership Fields
+**IMPORTANT**: Different models use different field names for ownership:
+
+| Model | Ownership Field | Example |
+|-------|-----------------|----------|
+| CourseSectionDB | `teacher_id` | `section.teacher_id` |
+| ClientProfileDB | `created_by` | `client.created_by` |
+| EvaluationRubricDB | `created_by` | `rubric.created_by` |
+| AssignmentDB | via section | `section.teacher_id` |
+
+```python
+# When checking ownership in services:
+# For sections:
+if section.teacher_id != teacher_id:
+    return False
+
+# For clients and rubrics:
+if client.created_by != teacher_id:
+    return False
+```
+
 ---
 
 ## 🏗️ Service Architecture

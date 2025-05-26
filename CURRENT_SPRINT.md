@@ -1,182 +1,193 @@
-# Current Sprint: Phase 1.4 Part 7 - Section Statistics
+# Current Sprint: Phase 1.5 - Assignment Management
 
 ## 📍 Session Handoff
-**Last Updated**: 2025-05-25
-**Last Completed**: Phase 1.4 Part 7 - Section Statistics ✅
-**Ready to Start**: Phase 1.4 Part 8 - Testing & Documentation
-**Tests Passing**: 
-- Student Section API: 11/11 ✅
-- Rubric API: 21/21 ✅
-- Enrollment API: 15/15 ✅
-- Section API: 18/18 ✅
-- Section Stats API: 8/8 ✅ (new)
-- Unit tests: 73/85 (12 database tests need fixture update)
-- Total: 140 tests passing
-**Notes for Next Session**: Section statistics implemented with efficient SQL queries. Routes properly ordered to avoid conflicts. Ready for final testing and documentation phase.
+**Last Updated**: 2025-05-25 (Updated breakdown)
+**Last Completed**: Phase 1.4 Part 8 - Testing & Documentation ✅
+**Ready to Start**: Phase 1.5 Part 1 - Assignment Database Models
+**Tests Passing**: All tests passing ✅ (171 total - 151 from test suite + 20 new client tests)
+**Notes for Next Session**: 
+- Phase 1.4 fully complete with comprehensive documentation
+- Missing client API tests from Phase 1.2 have been added
+- 81% overall code coverage achieved
+- All patterns documented and ready for reuse
+- Phase 1.5 has been broken into 8 testable parts (similar to Phase 1.4)
+- PROJECT_ROADMAP.md updated with detailed breakdown
 
 ## 📍 Where We Are in the Journey
-- **Current Phase**: 1.4 Course Section Management (Parts 1-7 ✅, Part 8 next)
-- **Next Part**: Part 8 - Testing & Documentation  
-- **Next Phase**: 1.5 Assignment Management
-- **Overall Progress**: ~58% of Phase 1 complete (13.4 of 23 hours minimum)
+- **Previous Phase**: 1.4 Course Section Management ✅ (All 8 parts complete)
+- **Current Phase**: 1.5 Assignment Management (Starting)
+- **Overall Progress**: ~63% of Phase 1 complete (14.75 of 23 hours minimum)
 - **See**: [`PROJECT_ROADMAP.md`](PROJECT_ROADMAP.md) for full context
 
-**Status**: Complete ✅ | **Actual Time**: 35 minutes
+**Status**: Not Started | **Estimated Time**: 4-5 hours
 
 ## 🎯 Sprint Goal
-Add statistics endpoints for teachers to view enrollment counts and section status.
+Implement assignment management within course sections, allowing teachers to create assignments that link clients and rubrics, with support for both practice and graded modes.
 
-## 📋 Tasks
-1. [x] Add `get_section_stats()` method to `section_service.py` ✅
-2. [x] Add `get_all_sections_stats()` method to `section_service.py` ✅
-3. [x] Add GET `/api/teacher/sections/stats` endpoint ✅
-4. [x] Add GET `/api/teacher/sections/{id}/stats` endpoint ✅
-5. [x] Write integration tests ✅
-6. [x] Ensure efficient SQL queries (no N+1 problems) ✅
+## 📋 Planned Tasks
 
-## 🔧 Implementation Details
+### Part 1: Assignment Database Models (30-40 min)
+- [ ] Create `backend/models/assignment.py`
+- [ ] Define `AssignmentDB` model with core fields
+- [ ] Create Pydantic schemas (AssignmentCreate, AssignmentUpdate, Assignment)
+- [ ] Write unit tests for model validation
 
-### Service Methods to Add
+### Part 2: Assignment-Client Junction Model (30-40 min)
+- [ ] Add `AssignmentClientDB` model to assignment.py
+- [ ] Implement soft delete support (is_active)
+- [ ] Create Pydantic schemas (AssignmentClientCreate, AssignmentClient)
+- [ ] Write unit tests for junction relationships
 
-#### 1. section_service.get_section_stats()
-```python
-def get_section_stats(self, db: Session, section_id: str) -> dict:
-    """
-    Get enrollment statistics for a single section.
-    
-    Returns:
-        {
-            "section_id": str,
-            "active_enrollments": int,
-            "inactive_enrollments": int,
-            "total_enrollments": int
-        }
-    """
+### Part 3: Assignment Service Core (30-40 min)
+- [ ] Create `backend/services/assignment_service.py` with basic CRUD
+- [ ] Add teacher permission checks (can_update, can_delete)
+- [ ] Implement create_assignment_for_teacher method
+- [ ] Write unit tests for service methods
+
+### Part 4: Assignment Teacher Endpoints (30-40 min)
+- [ ] Add assignment CRUD to teacher routes
+- [ ] Implement list/create/read/update/delete endpoints
+- [ ] Add response models and validation
+- [ ] Write integration tests
+
+### Part 5: Assignment Publishing (25-35 min)
+- [ ] Add publishing/unpublishing endpoints
+- [ ] Implement date validation logic
+- [ ] Add draft vs published filtering
+- [ ] Write tests for state transitions
+
+### Part 6: Assignment-Client Management (35-45 min)
+- [ ] Add endpoints for managing assignment clients
+- [ ] Implement add/remove client with rubric
+- [ ] Add bulk operations support
+- [ ] Write integration tests
+
+### Part 7: Student Assignment Viewing (30-40 min)
+- [ ] Add student endpoints for assignments
+- [ ] Filter by enrollment and publish status
+- [ ] Show only date-appropriate assignments
+- [ ] Write integration tests
+
+### Part 8: Testing & Documentation (30-40 min)
+- [ ] Run full test suite
+- [ ] Fix any regressions
+- [ ] Update API documentation
+- [ ] Create phase summary
+
+## 🔧 Technical Requirements
+
+### Database Schema
+```sql
+-- assignments table
+CREATE TABLE assignments (
+    id VARCHAR PRIMARY KEY,
+    section_id VARCHAR NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    description TEXT,
+    type VARCHAR(20) DEFAULT 'practice', -- 'practice' or 'graded'
+    settings JSON,
+    available_from TIMESTAMP,
+    due_date TIMESTAMP,
+    is_published BOOLEAN DEFAULT FALSE,
+    max_attempts INTEGER,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    FOREIGN KEY (section_id) REFERENCES course_sections(id)
+);
+
+-- assignment_clients table (junction)
+CREATE TABLE assignment_clients (
+    id VARCHAR PRIMARY KEY,
+    assignment_id VARCHAR NOT NULL,
+    client_id VARCHAR NOT NULL,
+    rubric_id VARCHAR NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    display_order INTEGER,
+    FOREIGN KEY (assignment_id) REFERENCES assignments(id),
+    FOREIGN KEY (client_id) REFERENCES client_profiles(id),
+    FOREIGN KEY (rubric_id) REFERENCES evaluation_rubrics(id),
+    UNIQUE(assignment_id, client_id)
+);
 ```
 
-#### 2. section_service.get_all_sections_stats()
-```python
-def get_all_sections_stats(self, db: Session, teacher_id: str) -> List[dict]:
-    """
-    Get enrollment statistics for all teacher's sections.
-    Uses efficient SQL to avoid N+1 queries.
-    
-    Returns:
-        List of stats dictionaries with section info
-    """
-```
-
-### Endpoints to Implement
-
-#### 1. GET `/api/teacher/sections/stats`
-- **Purpose**: Get statistics for all teacher's sections
-- **Returns**: List of sections with enrollment counts
-- **Example Response**:
-```json
-[
-    {
-        "section_id": "uuid",
-        "name": "SW 101 - Fall 2025",
-        "active_enrollments": 25,
-        "inactive_enrollments": 3,
-        "total_enrollments": 28
-    }
-]
-```
-
-#### 2. GET `/api/teacher/sections/{id}/stats`
-- **Purpose**: Get detailed statistics for a specific section
-- **Returns**: Single section statistics
-- **Security**: 404 if section doesn't exist or belongs to another teacher
+### Key Features to Implement
+1. **Assignment Types**: Practice vs Graded modes
+2. **Publishing**: Draft vs Published states
+3. **Scheduling**: Available from/due dates
+4. **Attempts**: Configurable max attempts
+5. **Client Pool**: Multiple clients per assignment
+6. **Rubric Flexibility**: Different rubric per client
 
 ## ⚠️ Key Patterns to Follow
 
-**Efficient Queries** → Use SQL COUNT() and GROUP BY
-**Security** → Teacher can only see their own sections' stats
-**Zero Handling** → Return 0 counts for sections with no enrollments
-**Response Format** → Include section metadata with stats
+From Phase 1.4:
+- **Service Composition**: Combine services in routes
+- **Teacher Isolation**: Filter by section ownership
+- **Soft Delete**: For assignment-client associations
+- **Efficient Queries**: Avoid N+1 problems
+- **Permission Checks**: Use section_service.can_update()
 
-## 🧪 Testing Requirements
+## 🧪 Testing Strategy
 
-Create `tests/integration/test_section_stats_api.py`:
-1. Test stats for section with enrollments
-2. Test stats for section with no enrollments
-3. Test bulk stats endpoint
-4. Test 404 for non-existent section
-5. Test 403 for other teacher's section
-6. Test inactive enrollment counting
+### Unit Tests
+- Assignment model validation
+- Service method isolation
+- Business rule enforcement
 
-## ❌ What NOT to Do
-- Don't load all enrollments into memory (use SQL aggregation)
-- Don't expose individual student information
-- Don't create N+1 query problems
-- Don't include sensitive data in stats
+### Integration Tests  
+- Full CRUD workflows
+- Permission boundaries
+- Date/time filtering
+- Student access control
+
+### Test Scenarios
+1. Create assignment with multiple clients
+2. Update assignment (published vs draft)
+3. Student can only see published assignments
+4. Respect enrollment and date filters
+5. Handle timezone considerations
 
 ## ✅ Definition of Done
-- [x] Both stats endpoints working ✅
-- [x] Efficient SQL queries (single query for bulk stats) ✅
-- [x] Integration tests passing ✅
-- [x] Proper error handling ✅
-- [x] Zero counts handled correctly ✅
+- [ ] All 6 parts implemented
+- [ ] All tests passing (maintain 80%+ coverage)
+- [ ] API documentation updated
+- [ ] Phase summary created
+- [ ] Ready for Phase 1.6 (Session Management)
 
 ## 📚 Quick Reference
-- **SQL aggregation**: Use COUNT() with GROUP BY
-- **Service pattern**: See section_service.py
-- **Error handling**: See PATTERNS.md "Standard Error Responses"
-- **Testing pattern**: See existing section API tests
-
-## ✅ Tests to Run
-**After implementing Part 7**:
-- `python -m pytest tests/integration/test_section_stats_api.py -v` (new)
-- `python -m pytest tests/integration/test_section_api.py -v` (regression)
-- `python test_quick.py` (general smoke test)
-
-**If any failures occur**:
-1. Fix the issue
-2. Re-run the specific failing test
-3. Document any persistent issues in Session Handoff
+- **Models**: See `course_section.py` for similar patterns
+- **Services**: Copy structure from `section_service.py`
+- **Routes**: Follow patterns in `teacher_routes.py`
+- **Tests**: Use fixtures from `test_section_api.py`
 
 ---
 
-# Next Sprint: Phase 1.4 Part 8 - Testing & Documentation
+# Previous Sprint: Phase 1.4 Course Section Management ✅
 
-## 🎯 Sprint Goal
-Consolidate all Phase 1.4 testing, ensure comprehensive test coverage, and create documentation summary.
+## Summary
+Successfully implemented course sections with enrollments, student access, and statistics across 8 parts:
 
-## 📋 Tasks
-1. [ ] Run full test suite for Phase 1.4
-2. [ ] Fix any failing tests
-3. [ ] Create integration test summary
-4. [ ] Review and update API documentation
-5. [ ] Create Phase 1.4 summary document
-6. [ ] Prepare for Phase 1.5 (Assignment Management)
+1. **Database Models** (25 min) - Section and enrollment tables
+2. **Section Service** (30 min) - CRUD with permissions  
+3. **Section Endpoints** (45 min) - Teacher section management
+4. **Enrollment Service** (45 min) - Smart enrollment logic
+5. **Enrollment Endpoints** (45 min) - Roster management
+6. **Student Access** (45 min) - Read-only student views
+7. **Statistics** (35 min) - Efficient count queries
+8. **Testing & Documentation** (45 min) - 171 total tests
 
-## 🧪 Testing Checklist
-- [ ] All unit tests passing
-- [ ] All integration tests passing
-- [ ] Section CRUD operations tested
-- [ ] Enrollment management tested
-- [ ] Statistics endpoints tested
-- [ ] Security/permissions tested
-- [ ] Error handling tested
+**Key Achievements**:
+- 15 new API endpoints
+- 171 tests (including 20 added client tests)
+- 81% code coverage
+- Comprehensive documentation
+- All security boundaries enforced
 
-## 📄 Documentation to Create
-1. **Phase 1.4 Summary**:
-   - Features implemented
-   - API endpoints created
-   - Database schema changes
-   - Test coverage report
-   - Lessons learned
+**Patterns Established**:
+- Soft delete with reactivation
+- Teacher isolation at service layer
+- Student 404s for security
+- Efficient SQL aggregation
+- Service composition in routes
 
-2. **API Documentation Update**:
-   - Section endpoints
-   - Enrollment endpoints
-   - Statistics endpoints
-   - Error responses
-
-## ✅ Definition of Done
-- [ ] All tests passing (100% of integration tests)
-- [ ] Phase summary document created
-- [ ] API documentation updated
-- [ ] Code review completed
-- [ ] Ready for Phase 1.5
+See [`docs/completed/phase-1-4-section-management.md`](docs/completed/phase-1-4-section-management.md) for full details.

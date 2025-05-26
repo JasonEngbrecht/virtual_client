@@ -39,6 +39,7 @@ Based on what was accomplished:
 - [ ] Move models from planned to implemented
 - [ ] Add any new models created
 - [ ] Update relationships or constraints
+- **Location**: `docs/architecture/DATA_MODELS.md`
 
 **ENVIRONMENT.md** (if environment changed):
 - [ ] Add new dependencies

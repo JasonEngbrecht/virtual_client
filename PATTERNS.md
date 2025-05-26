@@ -85,6 +85,48 @@ db.query(Model).filter(Model.is_active == True).all()
 ```
 **Used in**: SectionEnrollment, future models needing history
 
+### Reactivation Pattern
+For soft-deleted items that can be reactivated:
+```python
+def reactivate_item(self, db: Session, item_id: str) -> Optional[ModelType]:
+    # Check for existing inactive item
+    existing = db.query(self.model).filter(
+        self.model.id == item_id,
+        self.model.is_active == False
+    ).first()
+    
+    if existing:
+        # Reactivate with updated timestamp
+        existing.is_active = True
+        existing.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(existing)
+        return existing
+    return None
+
+# Example: Re-enrolling a student
+def enroll_student(self, db: Session, section_id: str, student_id: str):
+    # Check for existing enrollment (active or inactive)
+    existing = db.query(SectionEnrollmentDB).filter(
+        SectionEnrollmentDB.section_id == section_id,
+        SectionEnrollmentDB.student_id == student_id
+    ).first()
+    
+    if existing:
+        if existing.is_active:
+            return existing  # Already enrolled
+        else:
+            # Reactivate enrollment
+            existing.is_active = True
+            existing.enrolled_at = datetime.utcnow()
+            db.commit()
+            return existing
+    
+    # Create new enrollment if none exists
+    # ...
+```
+**Used in**: SectionEnrollment, future re-enrollable resources
+
 ### JSON Fields
 For flexible configuration data:
 ```python

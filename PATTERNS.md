@@ -161,6 +161,42 @@ status: Literal["active", "completed"] = mapped_column(String, default="active")
 # Allows for future states like "paused", "expired", "error"
 ```
 
+### Session Lifecycle Management
+Manage session state transitions with business logic:
+```python
+def end_session(self, db: Session, session_id: str, student_id: str, session_notes: Optional[str] = None) -> Optional[SessionDB]:
+    """End an active session with validation"""
+    # Get session with student validation
+    session = self.get_session(db, session_id, student_id)
+    if not session:
+        return None
+    
+    # Prevent ending already completed sessions
+    if session.status == 'completed':
+        return None
+    
+    # Update session state
+    update_data = {
+        'status': 'completed',
+        'ended_at': datetime.utcnow()
+    }
+    if session_notes:
+        update_data['session_notes'] = session_notes
+    
+    return self.update(db, session_id, **update_data)
+
+# Check for active sessions before creating new ones
+def get_active_session(self, db: Session, student_id: str, client_profile_id: str) -> Optional[SessionDB]:
+    sessions = self.get_multi(
+        db,
+        student_id=student_id,
+        client_profile_id=client_profile_id,
+        status='active',
+        limit=1
+    )
+    return sessions[0] if sessions else None
+```
+
 ### Model Simplification Pattern
 For MVP, remove fields that aren't immediately needed:
 ```python
@@ -274,6 +310,38 @@ def can_update(self, db: Session, item_id: str, teacher_id: str) -> bool:
 
 def can_delete(self, db: Session, item_id: str, teacher_id: str) -> bool:
     return self.can_update(db, item_id, teacher_id)
+```
+
+### Student-Specific Methods
+Pattern for student-owned resources (e.g., sessions):
+```python
+def create_session(self, db: Session, session_data: SessionCreate, student_id: str) -> SessionDB:
+    """Create session enforcing authenticated student ID"""
+    session_dict = session_data.model_dump()
+    session_dict['student_id'] = student_id  # Override with authenticated ID
+    session_dict['status'] = 'active'
+    session_dict['total_tokens'] = 0
+    session_dict['estimated_cost'] = 0.0
+    return self.create(db, **session_dict)
+
+def get_session(self, db: Session, session_id: str, student_id: Optional[str] = None) -> Optional[SessionDB]:
+    """Get session with optional student validation"""
+    session = self.get(db, session_id)
+    if not session:
+        return None
+    
+    # If student_id provided, validate ownership
+    if student_id and session.student_id != student_id:
+        return None  # Return None instead of 403 for security
+    
+    return session
+
+def get_student_sessions(self, db: Session, student_id: str, status: Optional[str] = None) -> List[SessionDB]:
+    """Get all sessions for a student with optional filtering"""
+    filters = {'student_id': student_id}
+    if status:
+        filters['status'] = status
+    return self.get_multi(db, **filters)
 ```
 
 ### Service Composition
@@ -681,6 +749,23 @@ def test_permission_denied(client: TestClient):
   - `test_create_client_success`
   - `test_update_client_not_found`
   - `test_delete_rubric_in_use_fails`
+
+### Floating-Point Comparison Pattern
+Use pytest's `approx()` for comparing floating-point values:
+```python
+from pytest import approx
+
+# ❌ AVOID - Can fail due to precision issues
+assert session.estimated_cost == 0.0045
+
+# ✅ CORRECT - Handles floating-point precision
+assert session.estimated_cost == approx(0.0045)
+
+# For multiple decimal places
+assert cost == approx(0.123456, rel=1e-6)  # Relative tolerance
+assert cost == approx(0.123456, abs=1e-6)  # Absolute tolerance
+```
+**Use for**: Cost calculations, percentages, any floating-point math
 
 ### Integration Test Database Setup Pattern
 **IMPORTANT**: Always use the standard `db_session` fixture from `conftest.py` for integration tests.

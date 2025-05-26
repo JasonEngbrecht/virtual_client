@@ -272,6 +272,14 @@ def test_service_method(self):
 - Models must be imported before `Base.metadata.create_all()`
 - Check that all models inherit from `Base`
 - Verify model imports in conftest.py
+- If using legacy `init_db.py`, ensure `database/schema.sql` exists
+
+### Schema File Missing
+**Problem**: `FileNotFoundError: Schema file not found: database/schema.sql`
+**Solution**:
+- Some legacy tests still use `init_db.py` which requires schema.sql
+- Either keep schema.sql file or migrate tests to use ORM-based initialization
+- Use `backend/scripts/init_db_orm.py` instead of `init_db.py` for new tests
 
 ### Fixture Not Found
 **Problem**: `fixture 'fixture_name' not found`

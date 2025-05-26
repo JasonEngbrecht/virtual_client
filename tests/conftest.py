@@ -25,6 +25,7 @@ from backend.models.client_profile import ClientProfileDB
 from backend.models.evaluation import EvaluationDB
 from backend.models.rubric import EvaluationRubricDB
 from backend.models.session import SessionDB
+from backend.models.message import MessageDB  # Add MessageDB
 from backend.models.course_section import CourseSectionDB, SectionEnrollmentDB
 from backend.models.assignment import AssignmentDB, AssignmentClientDB
 
@@ -164,28 +165,16 @@ def sample_rubric(db_session, sample_teacher_id) -> EvaluationRubricDB:
 def sample_session(
     db_session,
     sample_student_id,
-    sample_client_profile,
-    sample_rubric
+    sample_client_profile
 ) -> SessionDB:
     """Create a sample session for testing"""
     session = SessionDB(
         id="test-session-1",
         student_id=sample_student_id,
         client_profile_id=sample_client_profile.id,
-        rubric_id=sample_rubric.id,
-        messages=[
-            {
-                "role": "student",
-                "content": "Hello, how are you today?",
-                "timestamp": "2025-05-23T10:00:00"
-            },
-            {
-                "role": "client",
-                "content": "I'm feeling quite anxious about work.",
-                "timestamp": "2025-05-23T10:00:30"
-            }
-        ],
-        is_active=True
+        status="active",
+        total_tokens=0,
+        estimated_cost=0.0
     )
     db_session.add(session)
     db_session.commit()

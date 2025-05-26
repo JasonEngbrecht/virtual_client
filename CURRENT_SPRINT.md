@@ -1,19 +1,17 @@
 # Current Sprint: MVP - Minimum Viable Conversation
 
 ## 📍 Session Handoff
-**Last Updated**: 2025-01-27 19:00
-**Last Completed**: Major documentation pivot to MVP approach
-**Ready to Start**: MVP Week 1 - Day 1 (Session & Message Models)
-**Tests Passing**: All foundation tests passing ✅ (300 total tests)
-**Pivot Rationale**: Building infrastructure without validating core conversation experience
+**Last Updated**: 2025-01-28 21:30
+**Last Completed**: Part 3: Database Migration - Complete with all test fixes
+**Ready to Start**: Part 4: Basic Session Service
+**Tests Passing**: All tests passing ✅ (343 tests)
 **Notes for Next Session**: 
-- Foundation CRUD complete (17.25 hours of solid infrastructure)
-- Successfully pivoted all documentation to MVP approach
-- Created comprehensive MVP tracking and patterns
-- Target scale clarified: 10-20k students, 6M+ messages/semester
-- API costs projected: ~$4,500/semester with Claude Sonnet
-- Ready to implement simplified session/message models
-- Focus: Get to real conversations ASAP
+- Fixed database migration issues by updating integration tests to use standard fixtures
+- Updated test_section_api.py and test_client_api.py to remove legacy database initialization
+- All tests now use ORM-based database initialization from conftest.py
+- Database schema fully migrated with messages table and session updates
+- Ready to implement Session Service following established patterns
+- Can now safely delete legacy files: database/schema.sql and backend/scripts/init_db.py
 
 ## 📍 Where We Are in the Journey
 - **Previous Phase**: 1.5 Assignment Management ✅ (All parts complete)
@@ -38,20 +36,63 @@ Build a minimal but functional conversation system to validate the core experien
 ### Day 1-2: Simplified Session & Message Models
 **Goal**: Create minimal but scalable conversation tracking
 
-- [ ] Create simplified session model
-  ```python
-  # Simple but ready to scale
-  Session: id, student_id, client_profile_id, started_at, ended_at, status
-  ```
-- [ ] Create proper messages table (NOT JSON blob)
-  ```python
-  # Built for 6M+ messages from start
-  Message: id, session_id, role, content, timestamp, token_count, sequence_number
-  ```
-- [ ] Add token counting to models
-- [ ] Create session service with basic operations
-- [ ] Write minimal tests for new models
-- [ ] Set up PostgreSQL (or decide on SQLite for MVP)
+#### Work Breakdown (6 Parts - Test After Each):
+
+**Part 1: Update Session Model** ✅
+- [x] Remove: `rubric_id`, `evaluation_result_id`, `messages` JSON column
+- [x] Add: `total_tokens`, `estimated_cost`
+- [x] Change `is_active` to `status` (active/completed)
+- [x] Update Pydantic schemas to match
+- [x] **Test**: Ensure existing tests still pass (All 317 tests passing)
+
+**Additional work completed**:
+- Fixed all legacy rubric tests that referenced session.rubric_id
+- Updated rubric service to check assignment-client relationships instead
+- Created 18 comprehensive tests for the updated session model
+- Fixed import errors by removing Message and SendMessageResponse from exports
+
+**Part 2: Create Message Model** ✅
+- [x] Create new `message.py` with `MessageDB` table
+- [x] Fields: id, session_id, role, content, timestamp, token_count, sequence_number
+- [x] Create Pydantic schemas (MessageCreate, Message)
+- [x] Add to model registry (`__init__.py`)
+- [x] **Test**: Simple model instantiation test (8 comprehensive tests created)
+
+**Part 3: Database Migration** ✅
+- [x] Update database initialization to create messages table
+- [x] Ensure foreign key relationships work
+- [x] Use SQLite for local development (PostgreSQL when deploying to Railway)
+- [x] **Test**: Database creation with both tables
+
+**Additional work completed**:
+- Created ORM-based database initialization (`backend/scripts/init_db_orm.py`)
+- Created 12 comprehensive tests for database migration
+- Fixed conftest.py to import MessageDB model
+- Updated sample_session fixture to use new fields
+- Fixed integration test database initialization issues:
+  - Updated test_section_api.py to use standard db_session fixture
+  - Updated test_client_api.py to use standard db_session fixture
+  - Removed module-scoped test_db fixtures causing threading issues
+  - All 343 tests now passing
+
+**Part 4: Basic Session Service**
+- [ ] Create `session_service.py` with basic CRUD
+- [ ] Methods: create_session, get_session, end_session
+- [ ] Follow existing service patterns
+- [ ] **Test**: Basic session creation/retrieval
+
+**Part 5: Message Operations**
+- [ ] Add to session service: add_message, get_messages
+- [ ] Implement pagination for message history
+- [ ] Maintain sequence numbers
+- [ ] **Test**: Message creation and retrieval
+
+**Part 6: Token Counting**
+- [ ] Add token counting utility function
+- [ ] Integrate into message creation
+- [ ] Update session totals on each message
+- [ ] Add cost calculation (Haiku: $0.003/conv, Sonnet: $0.03/conv)
+- [ ] **Test**: Token counting accuracy
 
 ### Day 3: Anthropic Integration
 **Goal**: Connect AI and start generating responses
@@ -92,7 +133,7 @@ Build a minimal but functional conversation system to validate the core experien
 ### Day 6-7: Testing & Iteration
 **Goal**: Get real feedback and iterate quickly
 
-- [ ] Deploy to Streamlit Cloud (or chosen platform)
+- [ ] Deploy to Railway when ready for external testers (~$10-20/month)
 - [ ] Recruit 5-10 teachers for testing
 - [ ] Create feedback form
 - [ ] Monitor all conversations
@@ -104,11 +145,11 @@ Build a minimal but functional conversation system to validate the core experien
 ## 🔧 Technical Decisions for MVP
 
 ### Architecture Choices
-1. **Database**: PostgreSQL preferred (but SQLite acceptable for week 1)
+1. **Database**: SQLite for local development, PostgreSQL when deploying to Railway
 2. **Messages**: Separate table from day 1 (no JSON blobs)
 3. **API**: Use Anthropic Claude Haiku for testing ($0.003/conversation)
 4. **UI**: Streamlit for rapid iteration
-5. **Deployment**: Streamlit Cloud (free tier)
+5. **Deployment**: Local development first, Railway when ready for external testing (~$10-20/month)
 
 ### What We're NOT Building Yet
 - Complex session state management

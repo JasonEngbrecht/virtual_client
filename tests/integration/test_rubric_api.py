@@ -5,7 +5,9 @@ Integration tests for Rubric API endpoints
 import pytest
 import uuid
 from backend.models.rubric import EvaluationRubricDB
-from backend.models.session import SessionDB
+from backend.models.assignment import AssignmentDB, AssignmentClientDB
+from backend.models.course_section import CourseSectionDB
+from backend.models.client_profile import ClientProfileDB
 
 
 class TestRubricAPI:
@@ -494,7 +496,7 @@ class TestRubricAPI:
         # First, create a rubric
         rubric_data = {
             "name": "Rubric In Use",
-            "description": "This rubric will be used by a session",
+            "description": "This rubric will be used by an assignment",
             "criteria": [{"name": "Test", "description": "Test", "weight": 1.0, "evaluation_points": ["Test"]}]
         }
         
@@ -503,15 +505,40 @@ class TestRubricAPI:
         rubric_id = create_response.json()["id"]
         rubric_name = create_response.json()["name"]
         
-        # Create a session that uses this rubric
-        test_session = SessionDB(
+        # Create a section, assignment, client, and assignment-client that uses this rubric
+        section = CourseSectionDB(
             id=str(uuid.uuid4()),
-            student_id="student-123",
-            client_profile_id="client-123",
-            rubric_id=rubric_id,
-            messages=[]
+            teacher_id="teacher-123",
+            name="Test Section",
+            is_active=True
         )
-        db_session.add(test_session)
+        db_session.add(section)
+        
+        assignment = AssignmentDB(
+            id=str(uuid.uuid4()),
+            section_id=section.id,
+            title="Test Assignment",
+            type="practice"
+        )
+        db_session.add(assignment)
+        
+        test_client = ClientProfileDB(
+            id=str(uuid.uuid4()),
+            name="Test Client",
+            age=30,
+            created_by="teacher-123"
+        )
+        db_session.add(test_client)
+        
+        # Create assignment-client relationship that uses this rubric
+        assignment_client = AssignmentClientDB(
+            id=str(uuid.uuid4()),
+            assignment_id=assignment.id,
+            client_id=test_client.id,
+            rubric_id=rubric_id,
+            is_active=True
+        )
+        db_session.add(assignment_client)
         db_session.commit()
         
         # Try to delete the rubric - should fail with 409
@@ -522,7 +549,7 @@ class TestRubricAPI:
         assert "detail" in error
         assert "Cannot delete rubric" in error["detail"]
         assert rubric_name in error["detail"]
-        assert "being used by one or more sessions" in error["detail"]
+        assert "being used by one or more assignment-client relationships" in error["detail"]
         
         # Verify the rubric still exists
         get_response = client.get(f"/api/teacher/rubrics/{rubric_id}")
@@ -530,11 +557,11 @@ class TestRubricAPI:
         assert get_response.json()["id"] == rubric_id
     
     def test_delete_rubric_cascade_protection_multiple_sessions(self, client, mock_teacher_auth, db_session):
-        """Test cascade protection with multiple sessions using the rubric"""
+        """Test cascade protection with multiple assignments using the rubric"""
         # Create a rubric
         rubric_data = {
             "name": "Popular Rubric",
-            "description": "Used by multiple sessions",
+            "description": "Used by multiple assignments",
             "criteria": [{"name": "Test", "description": "Test", "weight": 1.0, "evaluation_points": ["Test"]}]
         }
         
@@ -542,29 +569,54 @@ class TestRubricAPI:
         assert create_response.status_code == 201
         rubric_id = create_response.json()["id"]
         
-        # Create multiple sessions using this rubric with unique IDs
+        # Create section and assignment
+        section = CourseSectionDB(
+            id=str(uuid.uuid4()),
+            teacher_id="teacher-123",
+            name="Test Section",
+            is_active=True
+        )
+        db_session.add(section)
+        
+        assignment = AssignmentDB(
+            id=str(uuid.uuid4()),
+            section_id=section.id,
+            title="Test Assignment",
+            type="practice"
+        )
+        db_session.add(assignment)
+        
+        # Create multiple assignment-client relationships using this rubric
         for i in range(3):
-            test_session = SessionDB(
+            test_client = ClientProfileDB(
                 id=str(uuid.uuid4()),
-                student_id=f"student-{i}",
-                client_profile_id=f"client-{i}",
-                rubric_id=rubric_id,
-                messages=[]
+                name=f"Client {i}",
+                age=30,
+                created_by="teacher-123"
             )
-            db_session.add(test_session)
+            db_session.add(test_client)
+            
+            assignment_client = AssignmentClientDB(
+                id=str(uuid.uuid4()),
+                assignment_id=assignment.id,
+                client_id=test_client.id,
+                rubric_id=rubric_id,
+                is_active=True
+            )
+            db_session.add(assignment_client)
         db_session.commit()
         
         # Try to delete - should fail
         delete_response = client.delete(f"/api/teacher/rubrics/{rubric_id}")
         assert delete_response.status_code == 409
-        assert "being used by one or more sessions" in delete_response.json()["detail"]
+        assert "being used by one or more assignment-client relationships" in delete_response.json()["detail"]
     
     def test_delete_rubric_no_cascade_issue(self, client, mock_teacher_auth, db_session):
-        """Test that rubric can be deleted when not used by any sessions"""
+        """Test that rubric can be deleted when not used by any assignments"""
         # Create a rubric
         rubric_data = {
             "name": "Unused Rubric",
-            "description": "Not used by any sessions",
+            "description": "Not used by any assignments",
             "criteria": [{"name": "Test", "description": "Test", "weight": 1.0, "evaluation_points": ["Test"]}]
         }
         
@@ -572,18 +624,42 @@ class TestRubricAPI:
         assert create_response.status_code == 201
         rubric_id = create_response.json()["id"]
         
-        # Create a session with a DIFFERENT rubric
-        test_session = SessionDB(
+        # Create section, assignment, client, and assignment-client with a DIFFERENT rubric
+        section = CourseSectionDB(
             id=str(uuid.uuid4()),
-            student_id="student-999",
-            client_profile_id="client-999",
-            rubric_id="different-rubric-id",  # Different rubric
-            messages=[]
+            teacher_id="teacher-123",
+            name="Test Section",
+            is_active=True
         )
-        db_session.add(test_session)
+        db_session.add(section)
+        
+        assignment = AssignmentDB(
+            id=str(uuid.uuid4()),
+            section_id=section.id,
+            title="Test Assignment",
+            type="practice"
+        )
+        db_session.add(assignment)
+        
+        test_client = ClientProfileDB(
+            id=str(uuid.uuid4()),
+            name="Test Client",
+            age=30,
+            created_by="teacher-123"
+        )
+        db_session.add(test_client)
+        
+        assignment_client = AssignmentClientDB(
+            id=str(uuid.uuid4()),
+            assignment_id=assignment.id,
+            client_id=test_client.id,
+            rubric_id="different-rubric-id",  # Different rubric
+            is_active=True
+        )
+        db_session.add(assignment_client)
         db_session.commit()
         
-        # Delete should succeed since no sessions use this rubric
+        # Delete should succeed since no assignments use this rubric
         delete_response = client.delete(f"/api/teacher/rubrics/{rubric_id}")
         assert delete_response.status_code == 204
         

@@ -133,6 +133,53 @@ For flexible configuration data:
 settings: dict = mapped_column(JSON, default=dict)
 ```
 
+### Token Tracking Pattern
+Track API usage at the session level for cost monitoring:
+```python
+# Session model fields
+total_tokens: int = mapped_column(Integer, default=0)
+estimated_cost: float = mapped_column(Float, default=0.0)
+status: str = mapped_column(String, default="active")  # 'active' or 'completed'
+
+# Update on each message
+session.total_tokens += message_tokens
+session.estimated_cost = (session.total_tokens / 100) * PRICE_PER_100_TOKENS
+```
+**Pricing**: 
+- Claude Haiku: $0.003 per 100 tokens (~$0.003 per conversation)
+- Claude Sonnet: $0.03 per 100 tokens (~$0.03 per conversation)
+
+### Session Status Pattern
+Replace boolean flags with explicit status fields:
+```python
+# Instead of:
+is_active: bool = mapped_column(Boolean, default=True)
+
+# Use:
+status: Literal["active", "completed"] = mapped_column(String, default="active")
+
+# Allows for future states like "paused", "expired", "error"
+```
+
+### Model Simplification Pattern
+For MVP, remove fields that aren't immediately needed:
+```python
+# SessionDB for MVP - minimal fields
+class SessionDB(Base):
+    id: str
+    student_id: str  
+    client_profile_id: str
+    started_at: datetime
+    ended_at: Optional[datetime]
+    status: str  # 'active' or 'completed'
+    total_tokens: int
+    estimated_cost: float
+    session_notes: Optional[str]
+    
+# Removed: rubric_id, evaluation_result_id, messages JSON
+# These can be added in later phases when needed
+```
+
 ### Foreign Key Relationships
 ```python
 # In model definition
@@ -141,6 +188,34 @@ teacher_id: str = mapped_column(String, ForeignKey("users.id"))
 # Relationship
 teacher = relationship("User", back_populates="sections")
 ```
+
+### ORM-Based Database Initialization Pattern
+Use SQLAlchemy ORM for database initialization instead of raw SQL:
+```python
+# backend/scripts/init_db_orm.py
+from sqlalchemy import text
+from backend.services.database import db_service, Base
+from backend.models import (  # Import all models to register with Base
+    ClientProfileDB, SessionDB, MessageDB, ...
+)
+
+def init_database_orm():
+    """Initialize database using SQLAlchemy ORM models"""
+    # Create all tables from registered models
+    db_service.create_tables()
+    
+    # Verify tables with proper SQL escaping
+    with db_service.get_db() as db:
+        result = db.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))
+        tables = [row[0] for row in result]
+    
+    return True
+```
+**Benefits**:
+- Ensures schema matches ORM models
+- No need to maintain separate SQL files
+- Automatic handling of relationships and constraints
+- Works across different databases (SQLite, PostgreSQL)
 
 ### Model Ownership Fields
 **IMPORTANT**: Different models use different field names for ownership:
@@ -606,6 +681,32 @@ def test_permission_denied(client: TestClient):
   - `test_create_client_success`
   - `test_update_client_not_found`
   - `test_delete_rubric_in_use_fails`
+
+### Integration Test Database Setup Pattern
+**IMPORTANT**: Always use the standard `db_session` fixture from `conftest.py` for integration tests.
+
+**❌ AVOID** - Creating custom database fixtures:
+```python
+# DON'T DO THIS - causes threading issues with SQLite
+@pytest.fixture(scope="module")
+def test_db():
+    init_database(":memory:")
+    yield
+```
+
+**✅ CORRECT** - Use standard fixtures:
+```python
+def test_endpoint(db_session):  # db_session from conftest.py
+    # Your test code here
+    response = client.get("/api/endpoint")
+    assert response.status_code == 200
+```
+
+**Benefits**:
+- Consistent database setup across all tests
+- No SQLite threading issues
+- Proper transaction rollback between tests
+- Uses ORM-based initialization
 
 ---
 

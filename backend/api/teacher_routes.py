@@ -1702,7 +1702,7 @@ async def delete_rubric(
     Raises:
         404: Rubric not found
         403: Rubric exists but belongs to another teacher
-        409: Rubric is being used by one or more sessions
+        409: Rubric is being used by one or more assignment-client relationships
         500: Server error during deletion
     """
     
@@ -1721,11 +1721,11 @@ async def delete_rubric(
             detail="You don't have permission to delete this rubric"
         )
     
-    # Check if rubric is in use by any sessions
+    # Check if rubric is in use by any assignment-client relationships
     if rubric_service.is_rubric_in_use(db, rubric_id):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Cannot delete rubric '{rubric.name}' because it is being used by one or more sessions. Please end or reassign those sessions first."
+            detail=f"Cannot delete rubric '{rubric.name}' because it is being used by one or more assignment-client relationships. Please remove the rubric from those assignments first."
         )
     
     # Delete the rubric

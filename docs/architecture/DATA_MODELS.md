@@ -323,14 +323,14 @@ Minimal session tracking focused on core conversation functionality.
 - No complex relationships yet
 - Will be enhanced based on learnings
 
-### Message (Scalable from Start)
+### Message (✅ Implemented)
 Proper message storage designed for 6M+ messages per semester.
 
 ```json
 {
     "id": "uuid",
     "session_id": "uuid",
-    "role": "student|client|system",
+    "role": "user|assistant",  // simplified for MVP
     "content": "text",
     "timestamp": "datetime",
     "token_count": "integer",
@@ -340,10 +340,12 @@ Proper message storage designed for 6M+ messages per semester.
 
 **Design Decisions:**
 - Separate table, NOT stored as JSON in session
-- Indexed for efficient queries
+- Indexed for efficient queries (session_id + timestamp, session_id + sequence)
 - Token counting built-in
 - Sequence number for ordering
 - Ready for pagination
+- Content validation ensures non-empty messages
+- Role limited to user/assistant for MVP (can expand later)
 
 ### MVP Implementation Notes
 

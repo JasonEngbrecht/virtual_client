@@ -3,10 +3,10 @@ Session Model
 Represents an interaction session between a student and virtual client
 """
 
-from sqlalchemy import Column, String, Text, JSON, DateTime, Boolean
+from sqlalchemy import Column, String, Text, DateTime, Integer, Float
 from sqlalchemy.sql import func
-from pydantic import BaseModel, Field
-from typing import List, Optional, Literal, Dict
+from pydantic import BaseModel, Field, field_validator
+from typing import Optional, Literal
 from datetime import datetime
 import uuid
 
@@ -21,30 +21,20 @@ class SessionDB(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     student_id = Column(String, nullable=False)
     client_profile_id = Column(String, nullable=False)
-    rubric_id = Column(String, nullable=False)
-    messages = Column(JSON, default=list)  # List of message objects
     started_at = Column(DateTime(timezone=True), server_default=func.now())
     ended_at = Column(DateTime(timezone=True), nullable=True)
-    is_active = Column(Boolean, default=True)
-    evaluation_result_id = Column(String, nullable=True)
+    status = Column(String, default="active")  # 'active' or 'completed'
+    total_tokens = Column(Integer, default=0)
+    estimated_cost = Column(Float, default=0.0)
     session_notes = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
 # Pydantic Models for API
-class Message(BaseModel):
-    """Individual message in a conversation"""
-    role: Literal["student", "client", "system"]
-    content: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
-    metadata: Optional[Dict] = None  # For storing additional info like emotion state
-
-
 class SessionBase(BaseModel):
     """Base session schema"""
     student_id: str
     client_profile_id: str
-    rubric_id: str
     session_notes: Optional[str] = None
 
 
@@ -56,17 +46,17 @@ class SessionCreate(SessionBase):
 class SessionUpdate(BaseModel):
     """Schema for updating a session"""
     session_notes: Optional[str] = None
-    is_active: Optional[bool] = None
+    status: Optional[Literal["active", "completed"]] = None
 
 
 class Session(SessionBase):
     """Complete session schema with all details"""
     id: str
-    messages: List[Message] = Field(default_factory=list)
     started_at: datetime
     ended_at: Optional[datetime] = None
-    is_active: bool = True
-    evaluation_result_id: Optional[str] = None
+    status: Literal["active", "completed"] = "active"
+    total_tokens: int = 0
+    estimated_cost: float = 0.0
     
     class Config:
         from_attributes = True
@@ -80,24 +70,25 @@ class SessionSummary(BaseModel):
     client_name: Optional[str] = None  # Populated from join
     started_at: datetime
     ended_at: Optional[datetime] = None
-    is_active: bool
+    status: Literal["active", "completed"]
     message_count: int = 0
-    has_evaluation: bool = False
+    total_tokens: int = 0
+    estimated_cost: float = 0.0
 
 
 class SendMessageRequest(BaseModel):
     """Request schema for sending a message in a session"""
     content: str = Field(..., min_length=1)
     
-    
-class SendMessageResponse(BaseModel):
-    """Response schema after sending a message"""
-    student_message: Message
-    client_response: Message
-    session_id: str
+    @field_validator('content')
+    @classmethod
+    def validate_content(cls, v: str) -> str:
+        """Ensure content is not empty or just whitespace"""
+        if not v or not v.strip():
+            raise ValueError('Message content cannot be empty')
+        return v
 
 
 class EndSessionRequest(BaseModel):
     """Request schema for ending a session"""
-    trigger_evaluation: bool = True
     session_notes: Optional[str] = None

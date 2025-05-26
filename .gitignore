@@ -83,3 +83,9 @@ sessions/
 secrets/
 *.pem
 *.key
+.streamlit/secrets.toml
+
+# Railway
+# railway.toml is safe to commit (contains config, not secrets)
+# But exclude any local Railway files
+.railway/

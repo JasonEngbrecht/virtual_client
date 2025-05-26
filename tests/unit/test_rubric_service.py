@@ -10,7 +10,9 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from backend.services.database import Base
-from backend.models.session import SessionDB
+from backend.models.assignment import AssignmentDB, AssignmentClientDB
+from backend.models.course_section import CourseSectionDB
+from backend.models.client_profile import ClientProfileDB
 from backend.services.rubric_service import RubricService, rubric_service
 from backend.models.rubric import EvaluationRubricDB, EvaluationRubricCreate
 
@@ -147,13 +149,13 @@ def test_can_delete_rubric():
 
 
 def test_is_rubric_in_use_no_sessions():
-    """Test is_rubric_in_use when rubric has no sessions"""
+    """Test is_rubric_in_use when rubric has no assignment-client relationships"""
     service = RubricService()
     
     # Create a mock database session
     db_mock = Mock()
     
-    # Mock the execute method to return 0 (no sessions using this rubric)
+    # Mock the execute method to return 0 (no assignment-clients using this rubric)
     mock_result = Mock()
     mock_result.scalar.return_value = 0
     db_mock.execute.return_value = mock_result
@@ -169,13 +171,13 @@ def test_is_rubric_in_use_no_sessions():
 
 
 def test_is_rubric_in_use_with_sessions():
-    """Test is_rubric_in_use when rubric is being used by sessions"""
+    """Test is_rubric_in_use when rubric is being used by assignment-client relationships"""
     service = RubricService()
     
     # Create a mock database session
     db_mock = Mock()
     
-    # Mock the execute method to return 3 (3 sessions using this rubric)
+    # Mock the execute method to return 3 (3 assignment-clients using this rubric)
     mock_result = Mock()
     mock_result.scalar.return_value = 3
     db_mock.execute.return_value = mock_result
@@ -209,19 +211,44 @@ def test_is_rubric_in_use_integration():
     try:
         service = RubricService()
         
-        # Test with rubric that has no sessions
+        # Test with rubric that has no assignment-client relationships
         result = service.is_rubric_in_use(db, "unused-rubric-id")
         assert result is False
         
-        # Create a session that uses a rubric
-        test_session = SessionDB(
-            id="session-1",
-            student_id="student-123",
-            client_profile_id="client-123",
-            rubric_id="used-rubric-id",
-            messages=[]
+        # Create necessary parent objects first
+        section = CourseSectionDB(
+            id="section-1",
+            teacher_id="teacher-123",
+            name="Test Section",
+            is_active=True
         )
-        db.add(test_session)
+        db.add(section)
+        
+        assignment = AssignmentDB(
+            id="assignment-1",
+            section_id="section-1",
+            title="Test Assignment",
+            type="practice"
+        )
+        db.add(assignment)
+        
+        client = ClientProfileDB(
+            id="client-1",
+            name="Test Client",
+            age=30,
+            created_by="teacher-123"
+        )
+        db.add(client)
+        
+        # Create assignment-client relationship that uses a rubric
+        assignment_client = AssignmentClientDB(
+            id="ac-1",
+            assignment_id="assignment-1",
+            client_id="client-1",
+            rubric_id="used-rubric-id",
+            is_active=True
+        )
+        db.add(assignment_client)
         db.commit()
         
         # Test with rubric that is being used
@@ -232,18 +259,26 @@ def test_is_rubric_in_use_integration():
         result = service.is_rubric_in_use(db, "another-unused-rubric")
         assert result is False
         
-        # Add another session with the same rubric
-        test_session2 = SessionDB(
-            id="session-2",
-            student_id="student-456",
-            client_profile_id="client-456",
-            rubric_id="used-rubric-id",
-            messages=[]
+        # Add another assignment-client with the same rubric
+        client2 = ClientProfileDB(
+            id="client-2",
+            name="Test Client 2",
+            age=35,
+            created_by="teacher-123"
         )
-        db.add(test_session2)
+        db.add(client2)
+        
+        assignment_client2 = AssignmentClientDB(
+            id="ac-2",
+            assignment_id="assignment-1",
+            client_id="client-2",
+            rubric_id="used-rubric-id",
+            is_active=True
+        )
+        db.add(assignment_client2)
         db.commit()
         
-        # Verify it still returns True (even with multiple sessions)
+        # Verify it still returns True (even with multiple assignment-clients)
         result = service.is_rubric_in_use(db, "used-rubric-id")
         assert result is True
         

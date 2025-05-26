@@ -126,7 +126,7 @@ Message: id, session_id, role, content, timestamp, token_count
 - **Teacher Page**: Create/edit one client, test chat
 - **Student Page**: Select client, have conversation
 - **Admin Page**: Monitor token usage and costs
-- Deploy for immediate testing
+- Test locally first, deploy to Railway when ready for external users
 
 #### Day 6-7: Initial Testing & Iteration
 - Get 5-10 teachers testing

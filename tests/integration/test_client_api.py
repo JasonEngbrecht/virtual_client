@@ -9,45 +9,22 @@ from sqlalchemy.orm import Session
 from backend.app import app
 from backend.models.client_profile import ClientProfileDB, ClientProfileCreate
 from backend.services.client_service import client_service
-from backend.scripts.init_db import init_database
 
 
 # Create test client
 client = TestClient(app)
 
 
-@pytest.fixture(scope="module")
-def test_db():
-    """Create a test database for the module."""
-    # Initialize test database
-    init_database(":memory:")
-    yield
-    # Cleanup handled by in-memory database
-
-
-@pytest.fixture(autouse=True)
-def clean_clients(test_db):
-    """Clean up clients before each test."""
-    from backend.services.database import db_service
-    db = db_service.SessionLocal()
-    try:
-        # Delete all clients
-        db.query(ClientProfileDB).delete()
-        db.commit()
-    finally:
-        db.close()
-
-
 class TestClientAPI:
     """Test suite for client profile API endpoints"""
     
-    def test_list_clients_empty(self):
+    def test_list_clients_empty(self, db_session):
         """Test listing clients when none exist"""
         response = client.get("/api/teacher/clients")
         assert response.status_code == 200
         assert response.json() == []
     
-    def test_create_client_success(self):
+    def test_create_client_success(self, db_session):
         """Test creating a new client with all fields"""
         client_data = {
             "name": "Jane Doe",
@@ -78,7 +55,7 @@ class TestClientAPI:
         assert "id" in data
         assert "created_at" in data
     
-    def test_create_client_minimal(self):
+    def test_create_client_minimal(self, db_session):
         """Test creating a client with only required fields"""
         client_data = {
             "name": "John Smith",
@@ -96,7 +73,7 @@ class TestClientAPI:
         assert data["race"] is None
         assert data["gender"] is None
     
-    def test_create_client_invalid_age(self):
+    def test_create_client_invalid_age(self, db_session):
         """Test creating a client with invalid age"""
         # Test age too low
         client_data = {
@@ -114,7 +91,7 @@ class TestClientAPI:
         response = client.post("/api/teacher/clients", json=client_data)
         assert response.status_code == 422
     
-    def test_create_client_invalid_name(self):
+    def test_create_client_invalid_name(self, db_session):
         """Test creating a client with invalid name"""
         # Test empty name
         client_data = {
@@ -131,7 +108,7 @@ class TestClientAPI:
         response = client.post("/api/teacher/clients", json=client_data)
         assert response.status_code == 422
     
-    def test_get_client_success(self):
+    def test_get_client_success(self, db_session):
         """Test retrieving a specific client"""
         # First create a client
         client_data = {
@@ -153,39 +130,33 @@ class TestClientAPI:
         assert data["age"] == 40
         assert data["issues"] == ["unemployment"]
     
-    def test_get_client_not_found(self):
+    def test_get_client_not_found(self, db_session):
         """Test retrieving a non-existent client"""
         response = client.get("/api/teacher/clients/non-existent-id")
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
     
-    def test_get_client_wrong_teacher(self):
+    def test_get_client_wrong_teacher(self, db_session):
         """Test retrieving a client belonging to another teacher"""
         # Create a client directly in the database with a different teacher
-        from backend.services.database import db_service
-        db = db_service.SessionLocal()
-        
-        try:
-            client_data = ClientProfileCreate(
-                name="Other Teacher's Client",
-                age=30
-            )
-            profile = client_service.create_client_for_teacher(
-                db,
-                client_data,
-                "other-teacher-456"
-            )
-            db.commit()
-            client_id = profile.id
-        finally:
-            db.close()
+        client_data = ClientProfileCreate(
+            name="Other Teacher's Client",
+            age=30
+        )
+        profile = client_service.create_client_for_teacher(
+            db_session,
+            client_data,
+            "other-teacher-456"
+        )
+        db_session.commit()
+        client_id = profile.id
         
         # Try to access it as teacher-123
         response = client.get(f"/api/teacher/clients/{client_id}")
         assert response.status_code == 403
         assert "permission" in response.json()["detail"].lower()
     
-    def test_update_client_success(self):
+    def test_update_client_success(self, db_session):
         """Test updating a client with full data"""
         # First create a client
         client_data = {
@@ -215,7 +186,7 @@ class TestClientAPI:
         assert set(data["issues"]) == {"financial_crisis", "mental_health"}
         assert set(data["personality_traits"]) == {"defensive", "anxious"}
     
-    def test_update_client_partial(self):
+    def test_update_client_partial(self, db_session):
         """Test partial update of a client"""
         # First create a client
         client_data = {
@@ -245,33 +216,27 @@ class TestClientAPI:
         assert data["issues"] == ["unemployment"]  # Unchanged
         assert data["personality_traits"] == ["withdrawn"]  # Updated
     
-    def test_update_client_not_found(self):
+    def test_update_client_not_found(self, db_session):
         """Test updating a non-existent client"""
         update_data = {"name": "New Name"}
         response = client.put("/api/teacher/clients/non-existent-id", json=update_data)
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
     
-    def test_update_client_wrong_teacher(self):
+    def test_update_client_wrong_teacher(self, db_session):
         """Test updating a client belonging to another teacher"""
         # Create a client for another teacher
-        from backend.services.database import db_service
-        db = db_service.SessionLocal()
-        
-        try:
-            client_data = ClientProfileCreate(
-                name="Other Teacher's Client",
-                age=30
-            )
-            profile = client_service.create_client_for_teacher(
-                db,
-                client_data,
-                "other-teacher-456"
-            )
-            db.commit()
-            client_id = profile.id
-        finally:
-            db.close()
+        client_data = ClientProfileCreate(
+            name="Other Teacher's Client",
+            age=30
+        )
+        profile = client_service.create_client_for_teacher(
+            db_session,
+            client_data,
+            "other-teacher-456"
+        )
+        db_session.commit()
+        client_id = profile.id
         
         # Try to update it as teacher-123
         update_data = {"name": "Hacked Name"}
@@ -279,7 +244,7 @@ class TestClientAPI:
         assert response.status_code == 403
         assert "permission" in response.json()["detail"].lower()
     
-    def test_update_client_empty_data(self):
+    def test_update_client_empty_data(self, db_session):
         """Test updating a client with empty data"""
         # First create a client
         client_data = {"name": "Test Client", "age": 30}
@@ -292,7 +257,7 @@ class TestClientAPI:
         assert response.status_code == 400
         assert "No valid fields" in response.json()["detail"]
     
-    def test_update_client_invalid_age(self):
+    def test_update_client_invalid_age(self, db_session):
         """Test updating a client with invalid age"""
         # First create a client
         client_data = {"name": "Test Client", "age": 30}
@@ -305,7 +270,7 @@ class TestClientAPI:
         response = client.put(f"/api/teacher/clients/{client_id}", json=update_data)
         assert response.status_code == 422
     
-    def test_delete_client_success(self):
+    def test_delete_client_success(self, db_session):
         """Test deleting a client"""
         # First create a client
         client_data = {"name": "To Be Deleted", "age": 25}
@@ -321,39 +286,33 @@ class TestClientAPI:
         get_response = client.get(f"/api/teacher/clients/{client_id}")
         assert get_response.status_code == 404
     
-    def test_delete_client_not_found(self):
+    def test_delete_client_not_found(self, db_session):
         """Test deleting a non-existent client"""
         response = client.delete("/api/teacher/clients/non-existent-id")
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
     
-    def test_delete_client_wrong_teacher(self):
+    def test_delete_client_wrong_teacher(self, db_session):
         """Test deleting a client belonging to another teacher"""
         # Create a client for another teacher
-        from backend.services.database import db_service
-        db = db_service.SessionLocal()
-        
-        try:
-            client_data = ClientProfileCreate(
-                name="Other Teacher's Client",
-                age=30
-            )
-            profile = client_service.create_client_for_teacher(
-                db,
-                client_data,
-                "other-teacher-456"
-            )
-            db.commit()
-            client_id = profile.id
-        finally:
-            db.close()
+        client_data = ClientProfileCreate(
+            name="Other Teacher's Client",
+            age=30
+        )
+        profile = client_service.create_client_for_teacher(
+            db_session,
+            client_data,
+            "other-teacher-456"
+        )
+        db_session.commit()
+        client_id = profile.id
         
         # Try to delete it as teacher-123
         response = client.delete(f"/api/teacher/clients/{client_id}")
         assert response.status_code == 403
         assert "permission" in response.json()["detail"].lower()
     
-    def test_list_clients_with_data(self):
+    def test_list_clients_with_data(self, db_session):
         """Test listing multiple clients"""
         # Create several clients
         clients_data = [
@@ -383,7 +342,7 @@ class TestClientAPI:
         client_names = [c["name"] for c in data]
         assert set(client_names) == {"Client 1", "Client 2", "Client 3"}
     
-    def test_teacher_isolation(self):
+    def test_teacher_isolation(self, db_session):
         """Test that teachers can only see their own clients"""
         # Create a client for teacher-123 (default mock teacher)
         client_data = {"name": "My Client", "age": 35}
@@ -391,23 +350,17 @@ class TestClientAPI:
         assert response.status_code == 201
         
         # Create clients for another teacher directly
-        from backend.services.database import db_service
-        db = db_service.SessionLocal()
-        
-        try:
-            for i in range(2):
-                other_client_data = ClientProfileCreate(
-                    name=f"Other Teacher Client {i+1}",
-                    age=40 + i
-                )
-                client_service.create_client_for_teacher(
-                    db,
-                    other_client_data,
-                    "other-teacher-456"
-                )
-            db.commit()
-        finally:
-            db.close()
+        for i in range(2):
+            other_client_data = ClientProfileCreate(
+                name=f"Other Teacher Client {i+1}",
+                age=40 + i
+            )
+            client_service.create_client_for_teacher(
+                db_session,
+                other_client_data,
+                "other-teacher-456"
+            )
+        db_session.commit()
         
         # List clients - should only see our own
         response = client.get("/api/teacher/clients")
@@ -418,7 +371,7 @@ class TestClientAPI:
         assert data[0]["name"] == "My Client"
         assert data[0]["created_by"] == "teacher-123"
     
-    def test_complete_client_workflow(self):
+    def test_complete_client_workflow(self, db_session):
         """Test complete workflow: create, update, list, delete"""
         # 1. Create a client
         client_data = {

@@ -38,14 +38,12 @@ from .rubric import (
 
 from .session import (
     SessionDB,
-    Message,
     SessionBase,
     SessionCreate,
     SessionUpdate,
     Session,
     SessionSummary,
     SendMessageRequest,
-    SendMessageResponse,
     EndSessionRequest
 )
 
@@ -69,6 +67,13 @@ from .assignment import (
     AssignmentClientCreate,
     AssignmentClient,
     ASSIGNMENT_SETTINGS_SUGGESTIONS
+)
+
+from .message import (
+    MessageDB,
+    MessageBase,
+    MessageCreate,
+    Message
 )
 
 # Export all models for easy access
@@ -105,14 +110,12 @@ __all__ = [
     
     # Session
     'SessionDB',
-    'Message',
     'SessionBase',
     'SessionCreate',
     'SessionUpdate',
     'Session',
     'SessionSummary',
     'SendMessageRequest',
-    'SendMessageResponse',
     'EndSessionRequest',
     
     # Course Section
@@ -134,4 +137,10 @@ __all__ = [
     'AssignmentClientCreate',
     'AssignmentClient',
     'ASSIGNMENT_SETTINGS_SUGGESTIONS',
+    
+    # Message
+    'MessageDB',
+    'MessageBase',
+    'MessageCreate',
+    'Message',
 ]

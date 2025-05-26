@@ -202,31 +202,53 @@ class TestDatabaseInitScript:
     """Test the database initialization script"""
     
     def test_init_script_imports(self):
-        """Test that init_db script can be imported"""
+        """Test that init_db_orm script can be imported"""
         try:
-            from backend.scripts import init_db
-            assert hasattr(init_db, 'init_database')
-            assert hasattr(init_db, 'verify_database')
-            assert hasattr(init_db, 'add_sample_data')
+            from backend.scripts import init_db_orm
+            assert hasattr(init_db_orm, 'init_database_orm')
+            assert hasattr(init_db_orm, 'verify_database_orm')
+            assert hasattr(init_db_orm, 'add_sample_data')
         except ImportError as e:
-            pytest.fail(f"Failed to import init_db script: {e}")
+            pytest.fail(f"Failed to import init_db_orm script: {e}")
     
-    def test_init_database_creates_file(self, tmp_path):
-        """Test that init_database creates a database file"""
-        from backend.scripts.init_db import init_database, verify_database, get_project_root
+    def test_init_database_orm_creates_file(self, tmp_path):
+        """Test that init_database_orm creates a database file"""
+        from backend.services.database import DatabaseService
+        from backend.models import (
+            ClientProfileDB, EvaluationRubricDB, SessionDB, MessageDB,
+            EvaluationDB, CourseSectionDB, SectionEnrollmentDB,
+            AssignmentDB, AssignmentClientDB
+        )
         
         # Create temporary database path
         db_path = tmp_path / "test.db"
+        db_url = f"sqlite:///{db_path}"
         
-        # Get the actual schema path from project
-        project_root = get_project_root()
-        schema_path = project_root / "database" / "schema.sql"
+        # Create a temporary database service
+        temp_db_service = DatabaseService(db_url)
         
-        # Initialize database
-        init_database(str(db_path), str(schema_path))
+        # Create tables
+        temp_db_service.create_tables()
         
         # Check file exists
         assert db_path.exists()
         
         # Verify database structure
-        assert verify_database(str(db_path))
+        with temp_db_service.get_db() as db:
+            # Check tables exist
+            result = db.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))
+            tables = {row[0] for row in result}
+            
+            expected_tables = {
+                'client_profiles',
+                'evaluation_rubrics',
+                'sessions',
+                'messages',
+                'evaluations',
+                'course_sections',
+                'section_enrollments',
+                'assignments',
+                'assignment_clients'
+            }
+            
+            assert expected_tables.issubset(tables)

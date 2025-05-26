@@ -11,34 +11,10 @@ from sqlalchemy.orm import Session
 
 from backend.app import app
 from backend.models.course_section import CourseSectionDB
-from backend.services import get_db
-from backend.scripts.init_db import init_database
 
 
 # Create test client
 client = TestClient(app)
-
-
-@pytest.fixture(scope="module")
-def test_db():
-    """Create a test database for the module."""
-    # Initialize test database
-    init_database(":memory:")
-    yield
-    # Cleanup handled by in-memory database
-
-
-@pytest.fixture(autouse=True)
-def clean_sections(test_db):
-    """Clean up sections before each test."""
-    from backend.services.database import db_service
-    db = db_service.SessionLocal()
-    try:
-        # Delete all sections (this will cascade to enrollments)
-        db.query(CourseSectionDB).delete()
-        db.commit()
-    finally:
-        db.close()
 
 
 # Test data
@@ -57,14 +33,14 @@ VALID_SECTION_DATA = {
 
 # ==================== LIST SECTIONS TESTS ====================
 
-def test_list_sections_empty():
+def test_list_sections_empty(db_session):
     """Test listing sections when none exist."""
     response = client.get("/api/teacher/sections")
     assert response.status_code == 200
     assert response.json() == []
 
 
-def test_list_sections_with_data():
+def test_list_sections_with_data(db_session):
     """Test listing sections for the authenticated teacher."""
     # Create a section first
     response1 = client.post("/api/teacher/sections", json=VALID_SECTION_DATA)
@@ -98,7 +74,7 @@ def test_list_sections_with_data():
 
 # ==================== CREATE SECTION TESTS ====================
 
-def test_create_section_success():
+def test_create_section_success(db_session):
     """Test creating a new section with valid data."""
     response = client.post("/api/teacher/sections", json=VALID_SECTION_DATA)
     
@@ -117,7 +93,7 @@ def test_create_section_success():
     assert "created_at" in section
 
 
-def test_create_section_minimal():
+def test_create_section_minimal(db_session):
     """Test creating a section with only required fields."""
     minimal_data = {
         "name": "Minimal Section"
@@ -137,7 +113,7 @@ def test_create_section_minimal():
     assert section["settings"] == {}
 
 
-def test_create_section_invalid_data():
+def test_create_section_invalid_data(db_session):
     """Test creating a section with invalid data."""
     # Missing required field
     invalid_data = {
@@ -150,7 +126,7 @@ def test_create_section_invalid_data():
     assert "name" in str(error["detail"])
 
 
-def test_create_section_empty_name():
+def test_create_section_empty_name(db_session):
     """Test creating a section with empty name."""
     invalid_data = {
         "name": ""
@@ -164,7 +140,7 @@ def test_create_section_empty_name():
 
 # ==================== GET SECTION TESTS ====================
 
-def test_get_section_success():
+def test_get_section_success(db_session):
     """Test retrieving a specific section."""
     # Create a section first
     create_response = client.post("/api/teacher/sections", json=VALID_SECTION_DATA)
@@ -182,7 +158,7 @@ def test_get_section_success():
     assert section["teacher_id"] == "teacher-123"
 
 
-def test_get_section_not_found():
+def test_get_section_not_found(db_session):
     """Test getting a non-existent section."""
     response = client.get("/api/teacher/sections/non-existent-id")
     
@@ -191,7 +167,7 @@ def test_get_section_not_found():
     assert "Section with ID 'non-existent-id' not found" in error["detail"]
 
 
-def test_get_section_wrong_teacher():
+def test_get_section_wrong_teacher(db_session):
     """Test getting a section that belongs to another teacher."""
     # Create a section with the mock teacher
     create_response = client.post("/api/teacher/sections", json=VALID_SECTION_DATA)
@@ -199,14 +175,9 @@ def test_get_section_wrong_teacher():
     section_id = create_response.json()["id"]
     
     # Manually update the teacher_id in the database
-    from backend.services.database import db_service
-    db = db_service.SessionLocal()
-    try:
-        section = db.query(CourseSectionDB).filter_by(id=section_id).first()
-        section.teacher_id = "other-teacher-456"
-        db.commit()
-    finally:
-        db.close()
+    section = db_session.query(CourseSectionDB).filter_by(id=section_id).first()
+    section.teacher_id = "other-teacher-456"
+    db_session.commit()
     
     # Try to get the section
     response = client.get(f"/api/teacher/sections/{section_id}")
@@ -218,7 +189,7 @@ def test_get_section_wrong_teacher():
 
 # ==================== UPDATE SECTION TESTS ====================
 
-def test_update_section_success():
+def test_update_section_success(db_session):
     """Test updating a section with valid data."""
     # Create a section first
     create_response = client.post("/api/teacher/sections", json=VALID_SECTION_DATA)
@@ -248,7 +219,7 @@ def test_update_section_success():
     assert updated_section["course_code"] == VALID_SECTION_DATA["course_code"]
 
 
-def test_update_section_partial():
+def test_update_section_partial(db_session):
     """Test partial update of a section."""
     # Create a section first
     create_response = client.post("/api/teacher/sections", json=VALID_SECTION_DATA)
@@ -271,7 +242,7 @@ def test_update_section_partial():
     assert updated_section["description"] == VALID_SECTION_DATA["description"]
 
 
-def test_update_section_not_found():
+def test_update_section_not_found(db_session):
     """Test updating a non-existent section."""
     update_data = {"name": "Updated Name"}
     response = client.put("/api/teacher/sections/non-existent-id", json=update_data)
@@ -281,7 +252,7 @@ def test_update_section_not_found():
     assert "Section with ID 'non-existent-id' not found" in error["detail"]
 
 
-def test_update_section_wrong_teacher():
+def test_update_section_wrong_teacher(db_session):
     """Test updating a section that belongs to another teacher."""
     # Create a section
     create_response = client.post("/api/teacher/sections", json=VALID_SECTION_DATA)
@@ -289,14 +260,9 @@ def test_update_section_wrong_teacher():
     section_id = create_response.json()["id"]
     
     # Change the teacher_id
-    from backend.services.database import db_service
-    db = db_service.SessionLocal()
-    try:
-        section = db.query(CourseSectionDB).filter_by(id=section_id).first()
-        section.teacher_id = "other-teacher-456"
-        db.commit()
-    finally:
-        db.close()
+    section = db_session.query(CourseSectionDB).filter_by(id=section_id).first()
+    section.teacher_id = "other-teacher-456"
+    db_session.commit()
     
     # Try to update
     update_data = {"name": "Updated Name"}
@@ -307,7 +273,7 @@ def test_update_section_wrong_teacher():
     assert "You don't have permission to update this section" in error["detail"]
 
 
-def test_update_section_empty_data():
+def test_update_section_empty_data(db_session):
     """Test updating a section with empty data."""
     # Create a section
     create_response = client.post("/api/teacher/sections", json=VALID_SECTION_DATA)
@@ -324,7 +290,7 @@ def test_update_section_empty_data():
 
 # ==================== DELETE SECTION TESTS ====================
 
-def test_delete_section_success():
+def test_delete_section_success(db_session):
     """Test deleting a section."""
     # Create a section first
     create_response = client.post("/api/teacher/sections", json=VALID_SECTION_DATA)
@@ -340,7 +306,7 @@ def test_delete_section_success():
     assert get_response.status_code == 404
 
 
-def test_delete_section_not_found():
+def test_delete_section_not_found(db_session):
     """Test deleting a non-existent section."""
     response = client.delete("/api/teacher/sections/non-existent-id")
     
@@ -349,7 +315,7 @@ def test_delete_section_not_found():
     assert "Section with ID 'non-existent-id' not found" in error["detail"]
 
 
-def test_delete_section_wrong_teacher():
+def test_delete_section_wrong_teacher(db_session):
     """Test deleting a section that belongs to another teacher."""
     # Create a section
     create_response = client.post("/api/teacher/sections", json=VALID_SECTION_DATA)
@@ -357,14 +323,9 @@ def test_delete_section_wrong_teacher():
     section_id = create_response.json()["id"]
     
     # Change the teacher_id
-    from backend.services.database import db_service
-    db = db_service.SessionLocal()
-    try:
-        section = db.query(CourseSectionDB).filter_by(id=section_id).first()
-        section.teacher_id = "other-teacher-456"
-        db.commit()
-    finally:
-        db.close()
+    section = db_session.query(CourseSectionDB).filter_by(id=section_id).first()
+    section.teacher_id = "other-teacher-456"
+    db_session.commit()
     
     # Try to delete
     response = client.delete(f"/api/teacher/sections/{section_id}")
@@ -376,7 +337,7 @@ def test_delete_section_wrong_teacher():
 
 # ==================== WORKFLOW TESTS ====================
 
-def test_complete_section_workflow():
+def test_complete_section_workflow(db_session):
     """Test a complete workflow: create, read, update, delete."""
     # Create
     create_response = client.post("/api/teacher/sections", json=VALID_SECTION_DATA)

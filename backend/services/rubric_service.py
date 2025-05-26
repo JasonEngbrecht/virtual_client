@@ -7,7 +7,7 @@ from typing import Optional, List
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func
 from ..models.rubric import EvaluationRubricDB, EvaluationRubricCreate
-from ..models.session import SessionDB
+from ..models.assignment import AssignmentClientDB
 from .database import BaseCRUD
 
 
@@ -133,17 +133,17 @@ class RubricService(BaseCRUD[EvaluationRubricDB]):
         rubric_id: str
     ) -> bool:
         """
-        Check if a rubric is being used by any sessions
+        Check if a rubric is being used by any assignment-client relationships
         
         Args:
             db: Database session
             rubric_id: ID of the rubric to check
             
         Returns:
-            True if rubric is referenced by any sessions, False otherwise
+            True if rubric is referenced by any assignment-client relationships, False otherwise
         """
-        # Query to check if any sessions reference this rubric
-        stmt = select(func.count(SessionDB.id)).where(SessionDB.rubric_id == rubric_id)
+        # Query to check if any assignment-client relationships reference this rubric
+        stmt = select(func.count(AssignmentClientDB.id)).where(AssignmentClientDB.rubric_id == rubric_id)
         count = db.execute(stmt).scalar()
         return count > 0
     

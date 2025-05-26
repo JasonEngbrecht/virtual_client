@@ -191,6 +191,128 @@ pip freeze > requirements.txt
 - **Pydantic**: Data validation
 - **pytest**: Testing framework
 - **httpx**: Test client for FastAPI
+- **anthropic**: Claude API client (MVP)
+- **streamlit**: Rapid prototyping UI (MVP)
+- **python-dotenv**: Environment variable management
+- **tenacity**: Retry logic for API calls
+
+## 🚀 MVP Development Setup
+
+### Additional Requirements
+
+#### PostgreSQL Setup (Optional for MVP)
+```bash
+# Install PostgreSQL on Windows
+# Download from: https://www.postgresql.org/download/windows/
+
+# Create database
+psql -U postgres
+CREATE DATABASE virtual_client_dev;
+\q
+
+# Update .env file
+DATABASE_URL=postgresql://postgres:password@localhost/virtual_client_dev
+```
+
+#### Anthropic API Setup
+```bash
+# Install SDK
+pip install anthropic
+
+# Create .env file in project root
+echo ANTHROPIC_API_KEY=sk-ant-your-key-here > .env
+
+# Test connection
+python -c "import anthropic; print('SDK installed')"
+```
+
+#### Streamlit Installation
+```bash
+# Install Streamlit
+pip install streamlit
+
+# Test installation
+streamlit hello
+
+# Run MVP apps
+streamlit run mvp/teacher_test.py
+streamlit run mvp/student_practice.py
+streamlit run mvp/admin_monitor.py
+```
+
+#### Redis Setup (For Phase 2)
+```bash
+# Windows: Use WSL or Docker
+# WSL approach:
+wsl --install
+# In WSL:
+sudo apt update
+sudo apt install redis-server
+sudo service redis-server start
+
+# Python client
+pip install redis
+
+# Test connection
+python -c "import redis; r = redis.Redis(); r.ping()"
+```
+
+### Environment Variables (.env)
+```bash
+# Required for MVP
+ANTHROPIC_API_KEY=sk-ant-...
+DATABASE_URL=sqlite:///./database/app.db  # or PostgreSQL
+ENVIRONMENT=development
+MAX_TOKENS_PER_SESSION=10000
+RATE_LIMIT_PER_HOUR=100
+COST_ALERT_THRESHOLD=0.10
+
+# Optional
+STREAMLIT_SERVER_PORT=8501
+STREAMLIT_SERVER_HEADLESS=true
+LOG_LEVEL=INFO
+```
+
+### MVP Commands
+```bash
+# Start FastAPI backend
+python start_server.py
+
+# Start Streamlit apps (in separate terminals)
+streamlit run mvp/teacher_test.py --server.port 8501
+streamlit run mvp/student_practice.py --server.port 8502
+streamlit run mvp/admin_monitor.py --server.port 8503
+
+# Or use the MVP runner script
+python mvp/run_all.py
+```
+
+### Streamlit Development Tips
+```bash
+# Hot reload is automatic
+# Clear cache if needed
+streamlit cache clear
+
+# Run with debug logging
+streamlit run app.py --logger.level debug
+
+# Custom config
+streamlit run app.py --theme.primaryColor "#FF6B6B"
+```
+
+### MVP Project Structure
+```
+virtual_client/
+├── backend/           # Existing FastAPI code
+├── mvp/               # NEW - Streamlit apps
+│   ├── teacher_test.py
+│   ├── student_practice.py
+│   ├── admin_monitor.py
+│   └── components/    # Shared UI components
+├── .env               # Environment variables
+└── .streamlit/        # Streamlit config
+    └── config.toml
+```
 
 ---
 

@@ -774,4 +774,344 @@ active_clients = [client for client in clients if client.is_active]
 
 ---
 
+## 🚀 MVP Development Patterns
+
+### Streamlit Application Structure
+```python
+# mvp/teacher_test.py
+import streamlit as st
+import sys
+sys.path.append('..')  # Add parent directory to path
+
+from backend.database import get_db
+from backend.services.client_service import client_service
+
+# Page config
+st.set_page_config(
+    page_title="Teacher Test Interface",
+    page_icon="🧑‍🏫",
+    layout="wide"
+)
+
+# Session state initialization
+if 'current_teacher' not in st.session_state:
+    st.session_state.current_teacher = 'teacher-123'
+
+# Main app logic
+def main():
+    st.title("Virtual Client Testing")
+    
+    # Sidebar for navigation
+    page = st.sidebar.selectbox(
+        "Choose a page",
+        ["Create Client", "Test Conversation", "View History"]
+    )
+    
+    if page == "Create Client":
+        show_create_client_page()
+    elif page == "Test Conversation":
+        show_test_conversation_page()
+    # ...
+
+if __name__ == "__main__":
+    main()
+```
+
+### Cost Control Patterns
+
+#### Token Counting on Every Message
+```python
+# In llm_service.py
+import anthropic
+
+def count_tokens(text: str) -> int:
+    # Use anthropic's token counter or tiktoken
+    # Rough estimate: ~4 characters per token
+    return len(text) // 4
+
+def create_message_with_tracking(session_id: str, role: str, content: str):
+    token_count = count_tokens(content)
+    
+    message = MessageDB(
+        session_id=session_id,
+        role=role,
+        content=content,
+        token_count=token_count,
+        timestamp=datetime.utcnow()
+    )
+    
+    # Update session total
+    session.total_tokens += token_count
+    session.estimated_cost = calculate_cost(session.total_tokens)
+    
+    return message
+```
+
+#### User-Level Rate Limiting
+```python
+# Simple in-memory rate limiter for MVP
+from collections import defaultdict
+from datetime import datetime, timedelta
+
+class RateLimiter:
+    def __init__(self, max_requests_per_hour=100):
+        self.max_requests = max_requests_per_hour
+        self.requests = defaultdict(list)
+    
+    def check_limit(self, user_id: str) -> bool:
+        now = datetime.utcnow()
+        hour_ago = now - timedelta(hours=1)
+        
+        # Clean old requests
+        self.requests[user_id] = [
+            req for req in self.requests[user_id] 
+            if req > hour_ago
+        ]
+        
+        # Check limit
+        if len(self.requests[user_id]) >= self.max_requests:
+            return False
+        
+        self.requests[user_id].append(now)
+        return True
+
+rate_limiter = RateLimiter()
+```
+
+#### Cost Alerts
+```python
+# In session_service.py
+COST_ALERT_THRESHOLD = 0.10  # Alert at $0.10
+
+def check_cost_alerts(session: SessionDB):
+    if session.estimated_cost > COST_ALERT_THRESHOLD:
+        logger.warning(
+            f"High cost session {session.id}: "
+            f"${session.estimated_cost:.3f}"
+        )
+        # Could send email, Slack notification, etc.
+```
+
+### Message Storage for Scale
+
+#### Proper Table Design
+```sql
+-- Messages table designed for 6M+ messages
+CREATE TABLE messages (
+    id UUID PRIMARY KEY,
+    session_id UUID NOT NULL,
+    role VARCHAR(20) NOT NULL,
+    content TEXT NOT NULL,
+    timestamp TIMESTAMP NOT NULL,
+    token_count INTEGER NOT NULL,
+    sequence_number INTEGER NOT NULL,
+    
+    -- Indexes for performance
+    INDEX idx_session_timestamp (session_id, timestamp),
+    INDEX idx_session_sequence (session_id, sequence_number),
+    
+    -- Foreign key
+    FOREIGN KEY (session_id) REFERENCES sessions(id)
+);
+```
+
+#### Pagination for Message History
+```python
+def get_session_messages(
+    db: Session, 
+    session_id: str, 
+    limit: int = 50,
+    offset: int = 0
+) -> List[MessageDB]:
+    return db.query(MessageDB)\
+        .filter(MessageDB.session_id == session_id)\
+        .order_by(MessageDB.sequence_number)\
+        .limit(limit)\
+        .offset(offset)\
+        .all()
+```
+
+### Anthropic Integration Patterns
+
+#### Client Setup with Retry
+```python
+import anthropic
+from tenacity import retry, stop_after_attempt, wait_exponential
+
+class AnthropicService:
+    def __init__(self, api_key: str):
+        self.client = anthropic.Anthropic(api_key=api_key)
+        self.model = "claude-3-haiku-20240307"  # Start with cheapest
+    
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=4, max=10)
+    )
+    async def generate_response(
+        self, 
+        system_prompt: str, 
+        messages: List[dict]
+    ) -> str:
+        try:
+            response = await self.client.messages.create(
+                model=self.model,
+                system=system_prompt,
+                messages=messages,
+                max_tokens=500,  # Control response length
+                temperature=0.7
+            )
+            return response.content[0].text
+        except anthropic.RateLimitError:
+            logger.error("Rate limit hit")
+            raise
+        except Exception as e:
+            logger.error(f"Anthropic error: {e}")
+            raise
+```
+
+#### System Prompt Generation
+```python
+def generate_system_prompt(client: ClientProfile) -> str:
+    return f"""
+You are playing the role of {client.name}, a {client.age}-year-old {client.gender} 
+who is {client.race} and from a {client.socioeconomic_status} background.
+
+Background: {client.background_story}
+
+You are experiencing these challenges: {', '.join(client.issues)}
+
+Your personality traits: {', '.join(client.personality_traits)}
+Communication style: {client.communication_style}
+
+IMPORTANT RULES:
+1. Stay in character at all times
+2. Respond as this person would, not as an AI
+3. Show the emotional state and challenges naturally
+4. Keep responses concise (2-3 sentences usually)
+5. This is an educational simulation for social work students
+6. Maintain appropriate boundaries for educational context
+"""
+```
+
+### Streamlit Conversation UI
+```python
+def show_conversation():
+    # Message display
+    for msg in st.session_state.messages:
+        with st.chat_message(msg["role"]):
+            st.write(msg["content"])
+            st.caption(f"Tokens: {msg['tokens']}")
+    
+    # Input handling
+    if prompt := st.chat_input("Type your message..."):
+        # Add user message
+        st.session_state.messages.append({
+            "role": "user",
+            "content": prompt,
+            "tokens": count_tokens(prompt)
+        })
+        
+        # Generate AI response
+        with st.spinner("Client is thinking..."):
+            response = generate_client_response(
+                st.session_state.current_client,
+                st.session_state.messages
+            )
+        
+        # Add AI message
+        st.session_state.messages.append({
+            "role": "assistant",
+            "content": response,
+            "tokens": count_tokens(response)
+        })
+        
+        # Rerun to update chat
+        st.rerun()
+```
+
+### MVP Testing Patterns
+
+#### Quick Feedback Collection
+```python
+# In Streamlit sidebar
+with st.sidebar:
+    st.subheader("Quick Feedback")
+    
+    quality = st.slider(
+        "Conversation Quality",
+        min_value=1,
+        max_value=10,
+        value=7
+    )
+    
+    if st.button("Submit Feedback"):
+        feedback = {
+            "session_id": st.session_state.session_id,
+            "quality_score": quality,
+            "timestamp": datetime.utcnow(),
+            "user_id": st.session_state.current_user
+        }
+        save_feedback(feedback)
+        st.success("Thanks for your feedback!")
+```
+
+#### Session Monitoring
+```python
+# admin_monitor.py
+def show_active_sessions():
+    sessions = get_active_sessions()
+    
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Active Sessions", len(sessions))
+    col2.metric("Messages/min", calculate_message_rate())
+    col3.metric("Avg Response Time", f"{avg_response_time:.1f}s")
+    col4.metric("Total Cost Today", f"${daily_cost:.2f}")
+    
+    # Live session feed
+    for session in sessions:
+        with st.expander(f"Session {session.id[:8]}..."):
+            st.write(f"Student: {session.student_id}")
+            st.write(f"Client: {session.client_name}")
+            st.write(f"Messages: {session.message_count}")
+            st.write(f"Cost: ${session.estimated_cost:.3f}")
+```
+
+### Deployment Patterns
+
+#### Environment Variables
+```python
+# .env file for local development
+ANTHROPIC_API_KEY=sk-ant-...
+DATABASE_URL=sqlite:///./virtual_client.db
+ENVIRONMENT=development
+MAX_TOKENS_PER_SESSION=10000
+RATE_LIMIT_PER_HOUR=100
+
+# Load in app
+from dotenv import load_dotenv
+load_dotenv()
+
+api_key = os.getenv("ANTHROPIC_API_KEY")
+if not api_key:
+    st.error("Please set ANTHROPIC_API_KEY in .env file")
+    st.stop()
+```
+
+#### Streamlit Cloud Config
+```toml
+# .streamlit/config.toml
+[theme]
+primaryColor = "#FF6B6B"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F0F2F6"
+textColor = "#262730"
+font = "sans serif"
+
+[server]
+maxUploadSize = 10
+enableCORS = false
+```
+
+---
+
 *This patterns guide is a living document. Update it when establishing new patterns or improving existing ones.*

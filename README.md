@@ -10,8 +10,13 @@ An AI-powered training platform for social work students to practice client inte
 3. **[`PROJECT_ROADMAP.md`](PROJECT_ROADMAP.md)** - 🗺️ Where we're going
 
 ### Current Focus
-**Phase 1.4 Part 6** - Student Section Access  
-See [`CURRENT_SPRINT.md`](CURRENT_SPRINT.md) for details.
+**MVP Phase Week 1** - Building Minimum Viable Conversation
+- Simplified session tracking
+- Anthropic integration  
+- Streamlit prototype
+- Real user testing
+
+See [`CURRENT_SPRINT.md`](CURRENT_SPRINT.md) for daily tasks.
 
 ## 📁 Project Structure
 ```

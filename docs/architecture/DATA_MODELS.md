@@ -299,6 +299,98 @@ Session ──produces──> Evaluation
 - Analytics and reporting models
 - Integration with external LMS
 
+## 🚀 MVP Models (Temporary Simplified Versions)
+
+### Session (Simplified for MVP)
+Minimal session tracking focused on core conversation functionality.
+
+```json
+{
+    "id": "uuid",
+    "student_id": "string",
+    "client_profile_id": "uuid",
+    "started_at": "timestamp",
+    "ended_at": "timestamp",
+    "status": "active|completed|abandoned",
+    "total_tokens": "integer",
+    "estimated_cost": "decimal"
+}
+```
+
+**MVP Features:**
+- Simple status tracking
+- Cost monitoring from day 1
+- No complex relationships yet
+- Will be enhanced based on learnings
+
+### Message (Scalable from Start)
+Proper message storage designed for 6M+ messages per semester.
+
+```json
+{
+    "id": "uuid",
+    "session_id": "uuid",
+    "role": "student|client|system",
+    "content": "text",
+    "timestamp": "datetime",
+    "token_count": "integer",
+    "sequence_number": "integer"
+}
+```
+
+**Design Decisions:**
+- Separate table, NOT stored as JSON in session
+- Indexed for efficient queries
+- Token counting built-in
+- Sequence number for ordering
+- Ready for pagination
+
+### MVP Implementation Notes
+
+**What's Different:**
+- No assignment linking yet
+- No rubric association
+- No attempt tracking
+- Focused purely on conversation quality
+
+**Migration Path:**
+After MVP validation, these models will be enhanced with:
+- Assignment relationships
+- Rubric associations
+- Attempt tracking
+- Session metadata
+- Evaluation readiness
+
+**Database Schema (MVP):**
+```sql
+-- Simplified sessions table
+CREATE TABLE sessions (
+    id VARCHAR PRIMARY KEY,
+    student_id VARCHAR NOT NULL,
+    client_profile_id VARCHAR NOT NULL,
+    started_at TIMESTAMP NOT NULL,
+    ended_at TIMESTAMP,
+    status VARCHAR(20) DEFAULT 'active',
+    total_tokens INTEGER DEFAULT 0,
+    estimated_cost DECIMAL(10,4) DEFAULT 0,
+    FOREIGN KEY (client_profile_id) REFERENCES client_profiles(id)
+);
+
+-- Messages table built for scale
+CREATE TABLE messages (
+    id VARCHAR PRIMARY KEY,
+    session_id VARCHAR NOT NULL,
+    role VARCHAR(20) NOT NULL,
+    content TEXT NOT NULL,
+    timestamp TIMESTAMP NOT NULL,
+    token_count INTEGER NOT NULL,
+    sequence_number INTEGER NOT NULL,
+    INDEX idx_session_timestamp (session_id, timestamp),
+    INDEX idx_session_sequence (session_id, sequence_number),
+    FOREIGN KEY (session_id) REFERENCES sessions(id)
+);
+```
+
 ---
 
 *This document serves as the authoritative reference for all data models in the Virtual Client system.*

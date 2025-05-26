@@ -9,6 +9,28 @@ An educational application designed to help social work students practice client
 - **For Students**: Practice difficult conversations safely, receive immediate feedback, build confidence
 - **For Programs**: Standardize training quality, track outcomes, reduce resource needs
 
+### Target Scale
+- **Students**: 10,000-20,000 per semester
+- **Conversations**: 10-20 per student (100,000-400,000 total)
+- **Messages**: 30+ per conversation (6+ million messages per semester)
+
+## 💰 API Cost Projections
+
+### Anthropic Claude Pricing
+Based on 150,000 conversations per semester (10,000 students × 15 conversations):
+
+| Model | Cost per Conversation | Semester Total | Recommendation |
+|-------|----------------------|----------------|----------------|
+| Claude 3 Opus | $0.16 | $24,000 | Too expensive for scale |
+| Claude 3 Sonnet | $0.03 | **$4,500** | **Production choice** |
+| Claude 3 Haiku | $0.003 | $450 | Development/testing |
+
+**Token Usage Assumptions**:
+- System prompt (client personality): ~500 tokens
+- Average conversation: 30 messages
+- Input tokens per conversation: ~3,500
+- Output tokens per conversation: ~1,500
+
 ## 🏗️ Architecture Overview
 
 ### Data Hierarchy
@@ -26,321 +48,270 @@ Student
 └── Sessions
     ├── Assignment Sessions (linked to specific assignment)
     └── Practice Sessions (free practice)
+        └── Messages (individual conversation turns)
 ```
 
 ### Technical Stack
 - **Backend**: FastAPI (Python)
-- **Database**: SQLite (demo) / PostgreSQL (production)
-- **LLM Integration**: OpenAI API (GPT-4) or Anthropic Claude
-- **Frontend Options**: 
-  - Streamlit (rapid prototyping)
-  - React/Vue (production UI)
-- **IDE**: PyCharm
+- **Database**: PostgreSQL (for scale from the start)
+- **LLM Integration**: Anthropic Claude (Sonnet for production)
+- **Prototype UI**: Streamlit (rapid testing)
+- **Production UI**: React (scalable, responsive)
+- **Caching**: Redis (for active sessions)
+- **Monitoring**: Built-in token/cost tracking
 
 ## 📊 Development Phases
 
-### Phase 1: Foundation - CRUD Implementation (23-28 hours)
-Build the complete data management layer for teachers.
+### ✅ Foundation Work Completed (17.25 hours)
 
-#### ✅ 1.1: Database Foundation (2-3 hours) - COMPLETE
+We've already built a solid foundation with full CRUD operations:
+
+#### ✅ 1.1: Database Foundation (2.5 hours)
 - Database initialization with verification
 - Base service class with session management
 - Generic BaseCRUD for reusable operations
 - Comprehensive testing infrastructure
-- **Actual Time**: 2.5 hours
 
-#### ✅ 1.2: ClientProfile CRUD (3-4 hours) - COMPLETE
+#### ✅ 1.2: ClientProfile CRUD (3.25 hours)
 - Full CRUD API for virtual clients
 - Teacher isolation and permissions
 - Comprehensive error handling
 - Mock authentication system
-- **Actual Time**: 3.25 hours
 
-#### ✅ 1.3: EvaluationRubric CRUD (2-3 hours) - COMPLETE
+#### ✅ 1.3: EvaluationRubric CRUD (3 hours)
 - Rubric management with criteria validation
 - Weight sum validation with helpful errors
 - Cascade protection for in-use rubrics
 - Duplicate criterion prevention
-- **Actual Time**: 3 hours
 
-#### ✅ 1.4: Course Section Management (3.5-4.5 hours) - COMPLETE
-- ✅ Part 1: Database Models (25 min actual)
-- ✅ Part 2: Section Service (30 min actual)
-- ✅ Part 3: Section CRUD Endpoints (45 min actual)
-- ✅ Part 4: Enrollment Service (45 min actual)
-- ✅ Part 5: Enrollment Endpoints (45 min actual)
-- ✅ Part 6: Student Section Access (45 min actual)
-- ✅ Part 7: Section Statistics (35 min actual)
-- ✅ Part 8: Testing & Documentation (45 min actual)
-- **Actual Time**: 4.5 hours
+#### ✅ 1.4: Course Section Management (4.5 hours)
+- Complete section and enrollment management
+- Teacher isolation at service layer
+- Student access controls
+- Soft delete with reactivation
 
-#### ⏳ 1.5: Assignment Management (4-5 hours)
-- ✅ Part 1: Assignment Database Models (40 min actual)
-  - Create AssignmentDB model with core fields
-  - Create Pydantic schemas (Create, Update, Response)
-  - Write unit tests for model validation
-- ✅ Part 2: Assignment-Client Junction Model (30 min actual)
-  - Create AssignmentClientDB junction table
-  - Add soft delete support (is_active)
-  - Create Pydantic schemas
-  - Write unit tests for junction relationships
-- ✅ Part 3: Assignment Service Core (40 min actual)
-  - Create assignment_service.py with basic CRUD
-  - Add teacher permission checks
-  - Implement create_for_teacher method
-  - Write unit tests for service methods
-- ✅ Part 4: Assignment Teacher Endpoints (30 min actual)
-  - Add assignment CRUD to teacher routes
-  - Implement list/create/read/update/delete
-  - Add response models and validation
-  - Write integration tests
-- ✅ Part 5: Assignment Publishing (30 min actual)
-  - Add publishing/unpublishing endpoints
-  - Implement date validation logic
-  - Add draft vs published filtering
-  - Write tests for state transitions
-- ✅ Part 6: Assignment-Client Management (45 min actual)
-  - Add endpoints for managing assignment clients
-  - Implement add/remove client with rubric
-  - Add bulk operations support
-  - Write integration tests (25 tests)
-- ✅ Part 7: Student Assignment Viewing (30 min actual)
-  - Add student endpoints for assignments
-  - Filter by enrollment and publish status
-  - Show only date-appropriate assignments
-  - Write integration tests (15 tests)
-- Part 8: Testing & Documentation (30-40 min)
-  - Run full test suite
-  - Fix any regressions
-  - Update API documentation
-  - Create phase summary
+#### ✅ 1.5: Assignment Management (4 hours)
+- Assignment CRUD with publishing workflow
+- Assignment-client relationships with rubrics
+- Practice vs graded modes
+- Date-based availability
 
-#### ⏳ 1.6: Session Management (4-5 hours)
-- Practice sessions (any client/rubric)
-- Assignment sessions (following rules)
-- Message handling and transcripts
-- Session state management
-- Attempt tracking
-- Teacher monitoring endpoints
+### 🚀 New Development Phases (Starting Now)
 
-#### ⏳ 1.7: Evaluation System (3-4 hours)
-- Automated evaluation based on rubrics
-- Teacher review capabilities
-- Student visibility controls
-- Evaluation API endpoints
-- Progress tracking
+## Phase 1: Minimum Viable Conversation (1 week)
+**Goal**: Get teachers and students testing real AI conversations ASAP
 
-### Phase 2: LLM Integration (Week 2)
-Connect AI to bring virtual clients to life.
+### Week 1 Sprint
 
-#### 2.1: LLM API Setup
-- OpenAI/Anthropic API integration
-- Configuration management
+#### Day 1-2: Simplified Session & Message Models
+- Create minimal session tracking
+- Separate messages table (not JSON)
+- Token counting from the start
+- Basic session states
+
+```python
+# Simplified models
+Session: id, student_id, client_id, started_at, status
+Message: id, session_id, role, content, timestamp, token_count
+```
+
+#### Day 3: Anthropic Integration
+- API connection and configuration
+- Prompt generation from client profiles
+- Token counting and cost tracking
 - Rate limiting and error handling
-- Cost tracking mechanisms
+- Message streaming support
 
-#### 2.2: Prompt Engineering
-- Client personality prompt templates
-- Dynamic prompt generation from profiles
-- Conversation context management
-- Response consistency maintenance
+#### Day 4-5: Streamlit Prototype
+- **Teacher Page**: Create/edit one client, test chat
+- **Student Page**: Select client, have conversation
+- **Admin Page**: Monitor token usage and costs
+- Deploy for immediate testing
 
-#### 2.3: Conversation Management
-- Message history handling
-- Context window optimization
-- State tracking (mood, topics discussed)
-- Realistic response timing
+#### Day 6-7: Initial Testing & Iteration
+- Get 5-10 teachers testing
+- Monitor conversation quality
+- Track API costs
+- Gather feedback on client responses
+- Quick fixes and adjustments
 
-#### 2.4: Safety Measures
-- Content filtering
-- Boundary enforcement
-- Inappropriate response handling
-- Educational context maintenance
+### Deliverables
+- Working conversation system
+- Real teacher/student feedback
+- Validated API cost model
+- List of improvements needed
 
-### Phase 3: Teacher Interface (Week 3)
-Build the teacher experience.
+## Phase 2: Validated Foundation (2 weeks)
+**Goal**: Build scalable infrastructure based on MVP learnings
 
-#### 3.1: Client Builder
-- Interactive profile creation form
-- Issue selection interface
-- Personality trait configuration
-- Background story generator assistance
+### Week 1: Core Infrastructure
 
-#### 3.2: Rubric Designer
-- Visual rubric builder
-- Criteria weight calculator
-- Template library
-- Import/export functionality
+#### Enhanced Data Models
+- Message indexing for 6M+ messages
+- Session metadata and analytics
+- Client profile versioning/snapshots
+- Cost tracking per student/section
+- Conversation state management
 
-#### 3.3: Dashboard
-- Course section overview
-- Student progress monitoring
-- Session review interface
+#### Scalable Architecture
+- PostgreSQL optimization
+- Redis caching for active sessions
+- Queue system for async operations
+- API rate limiting per user
+- Monitoring and alerting
+
+### Week 2: Refined Experience
+
+#### Improved AI Integration
+- Better prompt engineering based on feedback
+- Personality consistency improvements
+- Educational boundaries enforcement
+- Context window management
+- Fallback handling
+
+#### Essential Features
+- Basic rubric integration
+- Simple evaluation prototype
+- Session history viewing
+- Bulk operations for teachers
+- Cost control dashboard
+
+### Deliverables
+- Production-ready database
+- Scalable message handling
+- Refined AI conversations
+- Cost control system
+
+## Phase 3: Full Teacher Tools (2 weeks)
+**Goal**: Complete teacher experience using existing foundation
+
+### Week 1: Integration
+- Connect existing rubric system
+- Link assignment management
+- Section rostering tools
+- Client library management
+
+### Week 2: Analytics & Control
+- Student progress dashboard
+- Conversation quality metrics
+- Token usage reports
+- Bulk operations interface
+- Export capabilities
+
+### Deliverables
+- Complete teacher dashboard
 - Analytics and reporting
+- Integrated assignment system
+- Quality control tools
 
-#### 3.4: Preview System
-- Test client interactions
-- Rubric validation
-- Assignment preview
-- Quality assurance tools
+## Phase 4: Production Student Experience (2 weeks)
+**Goal**: Polished, scalable student interface
 
-### Phase 4: Student Interface (Week 4)
-Create the student practice environment.
-
-#### 4.1: Chat Interface
-- Real-time messaging UI
-- Typing indicators
-- Session timer
+### Week 1: Core Experience
+- React-based chat interface
+- Mobile-responsive design
+- Real-time message streaming
 - Progress indicators
+- Session management
 
-#### 4.2: Client Selection
-- Available clients browser
-- Client information display
-- Assignment vs practice mode
+### Week 2: Enhanced Features
+- Practice vs assignment modes
 - Attempt tracking
-
-#### 4.3: Session Controls
-- Start/pause/end session
-- Save progress
-- Note-taking capability
-- Help/hints system
-
-#### 4.4: Progress Tracking
 - Session history
-- Performance trends
-- Feedback review
-- Goal setting
+- Progress visualization
+- Help system
 
-### Phase 5: Evaluation System (Week 5)
-Implement comprehensive feedback.
+### Deliverables
+- Production-ready student app
+- Mobile support
+- Performance at scale
+- Complete user experience
 
-#### 5.1: Evaluation Algorithm
-- Rubric criteria application
-- LLM-assisted evaluation
-- Scoring calculation
-- Feedback generation
+## Phase 5: Automated Evaluation (1 week)
+**Goal**: Close the feedback loop
 
-#### 5.2: Report Generation
-- Detailed session reports
-- Strengths/weaknesses analysis
-- Improvement suggestions
-- Progress over time
+### Evaluation System
+- LLM-based analysis using rubrics
+- Criterion-by-criterion scoring
+- Specific feedback generation
+- Teacher review interface
+- Student feedback delivery
 
-#### 5.3: Analytics
-- Individual progress tracking
-- Cohort comparisons
-- Learning outcome metrics
-- Skill development trends
+### Deliverables
+- Automated scoring system
+- Detailed feedback reports
+- Teacher override capability
+- Student progress tracking
 
-#### 5.4: Export Features
-- PDF report generation
-- Session transcript export
-- Grade book integration
-- Portfolio building
+## 🎯 Updated Timeline
 
-### Phase 6: Polish & Testing (Week 6)
-Production readiness.
+### Immediate Path (8 weeks total)
+- **Week 1**: MVP Conversation - Test core experience
+- **Week 2-3**: Validated Foundation - Build for scale
+- **Week 4-5**: Teacher Tools - Complete educator experience
+- **Week 6-7**: Student Experience - Production UI
+- **Week 8**: Evaluation - Close feedback loop
 
-#### 6.1: Comprehensive Testing
-- End-to-end testing
-- Load testing
-- Security testing
-- User acceptance testing
-
-#### 6.2: Performance Optimization
-- Database query optimization
-- Caching implementation
-- API response time improvement
-- Concurrent user handling
-
-#### 6.3: UI/UX Polish
-- Consistent design system
-- Accessibility compliance
-- Mobile responsiveness
-- User onboarding flow
-
-#### 6.4: Documentation
-- User guides
-- API documentation
-- Deployment guides
-- Training materials
-
-## ⏱️ Timeline Summary
-
-### Phase 1 Breakdown (Foundation)
-- **Completed**: 20 hours
-  - 1.1 Database: 2.5 hours ✅
-  - 1.2 Clients: 3.25 hours ✅
-  - 1.3 Rubrics: 3 hours ✅
-  - 1.4 Sections: 4.5 hours ✅
-  - 1.5 Assignments: 4 hours (Parts 1-7 of 8) 🎯
-- **Remaining**: 3-8 hours
-  - 1.5 Assignments: 0.5-1 hour (Part 8 only)
-  - 1.6 Sessions: 4-5 hours
-  - 1.7 Evaluation: 3-4 hours
-
-### Overall Timeline
-- **Phase 1**: 23-28 hours (Foundation)
-- **Phase 2**: 1 week (LLM Integration)
-- **Phase 3**: 1 week (Teacher Interface)
-- **Phase 4**: 1 week (Student Interface)
-- **Phase 5**: 1 week (Evaluation System)
-- **Phase 6**: 1 week (Polish & Testing)
-- **Total**: 6-7 weeks for MVP
-
-## 🎯 Current Status
-
-- **Active Sprint**: Phase 1.5 - Assignment Management (Parts 1-7 of 8 complete)
-- **Completed**: ~87% of Phase 1 (20 of 23 hours minimum)
-- **Previous Sprint**: Phase 1.4 Complete - All 8 parts ✅
-- **Next Part**: Phase 1.5 Part 8 - Testing & Documentation
+### Completed Foundation
+- **17.25 hours** of infrastructure already built
+- Database, authentication, CRUD operations ready
+- Client profiles, rubrics, sections, assignments complete
 
 ## 🚀 Key Milestones
 
-1. **Foundation Complete** (Phase 1): Full CRUD operations ready
-2. **AI Integration** (Phase 2): Virtual clients can respond
-3. **Teacher Ready** (Phase 3): Teachers can create content
-4. **Student Ready** (Phase 4): Students can practice
-5. **Feedback Loop** (Phase 5): Automated evaluation working
-6. **Production Ready** (Phase 6): Polished and tested
+1. **Week 1**: First real teacher-student conversations
+2. **Week 3**: Scalable architecture deployed
+3. **Week 5**: Complete teacher experience
+4. **Week 7**: Production student interface
+5. **Week 8**: Automated feedback working
 
 ## 📈 Success Metrics
 
-### Technical Metrics
-- API response time < 200ms
-- 80%+ test coverage
-- Zero critical security issues
-- 99.9% uptime
+### Phase 1 Success (Week 1)
+- 10+ test conversations completed
+- <$0.01 per conversation cost
+- 80%+ positive feedback on conversation quality
+- Clear list of improvements
 
-### Educational Metrics
-- Student engagement rate
-- Practice session completion
-- Skill improvement trends
-- Teacher satisfaction scores
-
-### Business Metrics
-- User adoption rate
-- Session volume growth
-- Feature utilization
-- Support ticket volume
+### Production Success (Week 8)
+- Support 1,000 concurrent conversations
+- <3 second response time
+- 90%+ user satisfaction
+- <$0.05 per conversation all-in cost
 
 ## 🔮 Future Enhancements (Post-MVP)
 
-### Version 2.0
+### Version 2.0 (Months 3-6)
 - Voice interaction capabilities
-- Video avatar integration
-- Multi-language support
-- Mobile applications
-- Peer review features
-
-### Version 3.0
+- Group practice sessions
 - Advanced analytics dashboard
 - LMS integration (Canvas, Blackboard)
-- Custom AI model fine-tuning
-- Group session support
-- Competency mapping
+- Template marketplace
 
-## 🎓 Educational Principles
+### Version 3.0 (Year 2)
+- Custom AI fine-tuning
+- Video avatar integration
+- Multi-language support
+- Peer review features
+- Certification pathways
+
+## 📝 Key Technical Decisions
+
+### Revised Decisions
+1. **PostgreSQL from Start**: Handle scale requirements
+2. **Separate Messages Table**: Not JSON blob storage
+3. **Anthropic Claude**: Better for nuanced educational conversations
+4. **Streamlit First**: Validate before building complex UI
+5. **Token Tracking Built-in**: Cost control from day one
+
+### Maintained Decisions
+1. **FastAPI**: Proven, fast, good for our needs
+2. **Teacher Isolation**: Security and privacy
+3. **Soft Delete**: Preserve history
+4. **Pydantic Validation**: Type safety
+5. **Section-Based Organization**: Mirrors academia
+
+## 🎓 Educational Principles (Unchanged)
 
 ### Pedagogical Foundation
 - **Safe Practice Environment**: Students can make mistakes without real consequences
@@ -356,22 +327,6 @@ Production readiness.
 - **Sensitivity**: Appropriate handling of difficult topics
 - **Oversight**: Teacher monitoring and intervention capabilities
 
-## 📝 Decision Log
-
-### Key Technical Decisions
-1. **FastAPI over Flask**: Better performance, automatic API docs, modern Python
-2. **SQLite for Demo**: Simple setup, easy distribution, upgradeable to PostgreSQL
-3. **Pydantic Validation**: Type safety, automatic validation, clear errors
-4. **Soft Delete Pattern**: Preserve history, enable analytics, support recovery
-5. **Mock Authentication**: Faster initial development, easy to replace
-
-### Key Design Decisions
-1. **Teacher Isolation**: Complete data separation between teachers
-2. **Reusable Components**: Clients and rubrics shareable across assignments
-3. **Section-Based Organization**: Mirrors real academic structure
-4. **Flexible Sessions**: Support both practice and assignment modes
-5. **Progressive Disclosure**: Teachers control when students see evaluations
-
 ---
 
-*This roadmap is a living document. Update as the project evolves and new insights emerge.*
+*This roadmap reflects our pivot to validate the core experience quickly while maintaining our vision for a scalable, impactful educational tool.*

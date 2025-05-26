@@ -1,8 +1,0 @@
-# Files marked for deletion - to be removed manually:
-# - check_dependencies.py.delete
-# - check_prompt_tests.py.delete  
-# - test_prompt_service_runner.py.delete
-# - verify_token_counting.py.delete
-
-# These files were temporary test runners created accidentally during development
-# and have been renamed with .delete extension to indicate they should be removed.

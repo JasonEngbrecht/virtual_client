@@ -10,6 +10,7 @@ from sqlalchemy import func
 from ..models.session import SessionDB, SessionCreate, SessionUpdate
 from ..models.message import MessageDB, MessageCreate, Message
 from .database import BaseCRUD
+from ..utils import count_tokens, calculate_cost
 
 
 class SessionService(BaseCRUD[SessionDB]):
@@ -261,16 +262,18 @@ class SessionService(BaseCRUD[SessionDB]):
         message = MessageDB(**message_dict)
         db.add(message)
         
-        # Update session token count and cost if this is an assistant message
-        # (User messages don't typically incur API costs)
-        if message.role == 'assistant' and message.token_count > 0:
-            # Calculate cost based on token count
-            # Using Haiku pricing: $0.25 per 1M input tokens, $1.25 per 1M output tokens
-            # For simplicity, using average of $0.75 per 1M tokens
-            cost_per_token = 0.75 / 1_000_000
-            cost_incurred = message.token_count * cost_per_token
-            
+        # Calculate token count if not provided
+        if message.token_count == 0 and message.content:
+            message.token_count = count_tokens(message.content)
+        
+        # Update session token count and cost
+        # Both user and assistant messages count towards usage
+        if message.token_count > 0:
             session.total_tokens += message.token_count
+            
+            # Calculate incremental cost for this message
+            # Using average pricing since we don't distinguish input/output in MVP
+            cost_incurred = calculate_cost(message.token_count, model="haiku", token_type="average")
             session.estimated_cost += cost_incurred
         
         db.commit()

@@ -1,19 +1,18 @@
 # Current Sprint: MVP - Minimum Viable Conversation
 
 ## 📍 Session Handoff
-**Last Updated**: 2025-01-29 11:45
-**Last Completed**: Part 5: Message Operations - Complete with all tests passing
-**Ready to Start**: Part 6: Token Counting
-**Tests Passing**: All tests passing ✅ (380 tests)
+**Last Updated**: 2025-01-29 12:30
+**Last Completed**: Part 6: Token Counting - Complete with all tests passing  
+**Ready to Start**: Day 3: Anthropic Integration
+**Tests Passing**: All tests passing ✅ (401 tests)
 **Notes for Next Session**: 
-- Added message operations to session_service.py: add_message() and get_messages()
-- Implemented automatic sequence numbering for messages
-- Added pagination support for message retrieval
-- Integrated token counting with cost calculation for assistant messages
-- Created 17 comprehensive unit tests for message operations
-- Messages can only be added to active sessions with proper student validation
-- Cost calculation uses Haiku pricing: $0.75 per 1M tokens (average)
-- Ready to implement dedicated token counting utility in Part 6
+- Created token counting utility in backend/utils/token_counter.py
+- Integrated automatic token counting for messages without explicit counts
+- Both user and assistant messages now count toward session totals
+- Implemented flexible pricing support (Haiku: $0.75/1M avg, Sonnet: $9.00/1M avg)
+- Created 29 unit tests for token counter utility
+- Updated session service with 6 additional integration tests
+- All Day 1-2 tasks complete, ready for Anthropic API integration
 
 ## 📍 Where We Are in the Journey
 - **Previous Phase**: 1.5 Assignment Management ✅ (All parts complete)
@@ -97,12 +96,21 @@ Build a minimal but functional conversation system to validate the core experien
 - [x] Maintain sequence numbers
 - [x] **Test**: Message creation and retrieval (17 tests created, all passing)
 
-**Part 6: Token Counting**
-- [ ] Add token counting utility function
-- [ ] Integrate into message creation
-- [ ] Update session totals on each message
-- [ ] Add cost calculation (Haiku: $0.003/conv, Sonnet: $0.03/conv)
-- [ ] **Test**: Token counting accuracy
+**Part 6: Token Counting** ✅
+- [x] Add token counting utility function
+- [x] Integrate into message creation
+- [x] Update session totals on each message
+- [x] Add cost calculation (Haiku: $0.003/conv, Sonnet: $0.03/conv)
+- [x] **Test**: Token counting accuracy (29 tests created, all passing)
+
+**Additional work completed**:
+- Created dedicated utils package with token_counter.py module
+- Implemented character-based token estimation (4 chars ≈ 1 token)
+- Added support for multiple pricing models with easy configuration
+- Automatic token counting for messages without explicit counts
+- Both user and assistant messages now contribute to session totals
+- Cost formatting utilities for display
+- Comprehensive test coverage including edge cases
 
 ### Day 3: Anthropic Integration
 **Goal**: Connect AI and start generating responses

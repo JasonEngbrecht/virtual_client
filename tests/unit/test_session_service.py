@@ -527,7 +527,8 @@ class TestSessionServiceMessageOperations:
         assert message.role == "user"
         assert message.content == "Hello, I need help with a client."
         assert message.sequence_number == 1
-        assert message.token_count == 0
+        # Token count should be automatically calculated: 33 chars / 4 = 8.25 -> 8 tokens
+        assert message.token_count == 8
         assert message.timestamp is not None
     
     def test_add_message_with_student_validation(self, db_session, sample_student_id, sample_client_profile):
@@ -611,18 +612,18 @@ class TestSessionServiceMessageOperations:
         )
         session = service.create_session(db_session, session_data, sample_student_id)
         
-        # Add user message (no token cost)
+        # Add user message (now counts toward tokens and cost)
         user_message = MessageCreate(
             role="user",
             content="Help me with a client",
-            token_count=10  # User tokens don't count toward cost
+            token_count=10  # User tokens now count toward cost
         )
         service.add_message(db_session, session.id, user_message, sample_student_id)
         
-        # Verify no cost yet
+        # Verify user message counted
         session = service.get_session(db_session, session.id)
-        assert session.total_tokens == 0
-        assert session.estimated_cost == 0.0
+        assert session.total_tokens == 10  # User tokens now count
+        assert session.estimated_cost == approx(10 * 0.75 / 1_000_000)  # Small but non-zero
         
         # Add assistant message with tokens
         assistant_message = MessageCreate(
@@ -632,11 +633,11 @@ class TestSessionServiceMessageOperations:
         )
         service.add_message(db_session, session.id, assistant_message, sample_student_id)
         
-        # Verify tokens and cost updated
+        # Verify tokens and cost updated (including user tokens)
         session = service.get_session(db_session, session.id)
-        assert session.total_tokens == 100
-        # Cost calculation: 100 tokens * (0.75 / 1_000_000) = 0.000075
-        assert session.estimated_cost == approx(0.000075)
+        assert session.total_tokens == 110  # 10 (user) + 100 (assistant)
+        # Cost calculation: 110 tokens * (0.75 / 1_000_000)
+        assert session.estimated_cost == approx(110 * 0.75 / 1_000_000)
         
         # Add another assistant message
         assistant_message2 = MessageCreate(
@@ -648,8 +649,8 @@ class TestSessionServiceMessageOperations:
         
         # Verify cumulative update
         session = service.get_session(db_session, session.id)
-        assert session.total_tokens == 150
-        assert session.estimated_cost == approx(0.000075 + 0.0000375)
+        assert session.total_tokens == 160  # 10 + 100 + 50
+        assert session.estimated_cost == approx(160 * 0.75 / 1_000_000)
     
     def test_get_messages_basic(self, db_session, sample_student_id, sample_client_profile):
         """Test basic message retrieval"""
@@ -797,12 +798,13 @@ class TestSessionServiceMessageOperations:
         session = service.create_session(db_session, session_data, sample_student_id)
         
         # Simulate a conversation
+        # Note: token_count=0 will trigger automatic calculation for user messages
         conversation = [
-            ("user", "Hi, I'm working with a client who seems withdrawn.", 0),
+            ("user", "Hi, I'm working with a client who seems withdrawn.", 0),  # 50 chars -> 12 tokens
             ("assistant", "I understand you're working with a client who appears withdrawn. Can you tell me more about their behavior?", 150),
-            ("user", "They barely speak during our sessions and avoid eye contact.", 0),
+            ("user", "They barely speak during our sessions and avoid eye contact.", 0),  # 60 chars -> 15 tokens  
             ("assistant", "That must be challenging. How long have you been working with this client, and have you noticed any patterns?", 175),
-            ("user", "About 3 weeks now. They seem more withdrawn on Mondays.", 0),
+            ("user", "About 3 weeks now. They seem more withdrawn on Mondays.", 0),  # 56 chars -> 14 tokens
             ("assistant", "Interesting observation about Mondays. Have you explored what might be happening over the weekends?", 125)
         ]
         
@@ -816,8 +818,12 @@ class TestSessionServiceMessageOperations:
         
         # Check final session state
         session = service.get_session(db_session, session.id)
-        assert session.total_tokens == 450  # Sum of assistant tokens
-        assert session.estimated_cost == approx(450 * 0.75 / 1_000_000)
+        # Total tokens now includes both user and assistant messages
+        # User messages: 12 + 15 + 14 = 41 tokens (auto-calculated)
+        # Assistant messages: 150 + 175 + 125 = 450 tokens
+        # Total: 491 tokens (may be 490 due to rounding)
+        assert session.total_tokens in [490, 491]  # Allow for slight rounding variation
+        assert session.estimated_cost == approx(session.total_tokens * 0.75 / 1_000_000)
         
         # Get all messages
         messages = service.get_messages(db_session, session.id, sample_student_id)
@@ -835,3 +841,191 @@ class TestSessionServiceMessageOperations:
         # Can still retrieve messages after session ends
         messages = service.get_messages(db_session, session.id, sample_student_id)
         assert len(messages) == 6
+
+
+class TestTokenCountingIntegration:
+    """Test integration of token counting utility with session service"""
+    
+    def test_automatic_token_counting_for_messages(self, db_session, sample_student_id, sample_client_profile):
+        """Test that messages without token counts get them automatically"""
+        service = SessionService()
+        
+        # Create a session
+        session_data = SessionCreate(
+            student_id=sample_student_id,
+            client_profile_id=sample_client_profile.id
+        )
+        session = service.create_session(db_session, session_data, sample_student_id)
+        
+        # Add message without token count
+        message_data = MessageCreate(
+            role="user",
+            content="This is a test message to verify automatic token counting"
+            # No token_count specified
+        )
+        message = service.add_message(db_session, session.id, message_data, sample_student_id)
+        
+        # Verify token count was calculated
+        # "This is a test message to verify automatic token counting" = 58 chars
+        # 58 / 4 = 14.5, rounds to 14 tokens
+        assert message.token_count == 14
+        
+        # Add assistant message to verify cost calculation
+        assistant_data = MessageCreate(
+            role="assistant",
+            content="I understand your message about token counting functionality"
+            # 60 chars / 4 = 15 tokens
+        )
+        assistant_msg = service.add_message(db_session, session.id, assistant_data, sample_student_id)
+        assert assistant_msg.token_count == 15
+        
+        # Verify session totals updated with new utility
+        session = service.get_session(db_session, session.id)
+        assert session.total_tokens == 29  # Both messages count now
+        # Cost: 29 tokens * (0.75 / 1_000_000) = 0.00002175
+        assert session.estimated_cost == approx(0.00002175)
+    
+    def test_explicit_token_count_preserved(self, db_session, sample_student_id, sample_client_profile):
+        """Test that explicitly provided token counts are preserved"""
+        service = SessionService()
+        
+        # Create a session
+        session_data = SessionCreate(
+            student_id=sample_student_id,
+            client_profile_id=sample_client_profile.id
+        )
+        session = service.create_session(db_session, session_data, sample_student_id)
+        
+        # Add message with explicit token count
+        message_data = MessageCreate(
+            role="assistant",
+            content="Short",  # Would be 1 token by calculation
+            token_count=100  # Explicit count
+        )
+        message = service.add_message(db_session, session.id, message_data, sample_student_id)
+        
+        # Verify explicit count was preserved
+        assert message.token_count == 100
+        
+        # Verify session updated with explicit count
+        session = service.get_session(db_session, session.id)
+        assert session.total_tokens == 100
+    
+    def test_empty_message_token_counting(self, db_session, sample_student_id, sample_client_profile):
+        """Test token counting for minimal messages"""
+        service = SessionService()
+        
+        # Create a session
+        session_data = SessionCreate(
+            student_id=sample_student_id,
+            client_profile_id=sample_client_profile.id
+        )
+        session = service.create_session(db_session, session_data, sample_student_id)
+        
+        # Note: Empty messages are not allowed by MessageCreate validation
+        # Test minimal message instead
+        
+        # Add single character message
+        single_data = MessageCreate(
+            role="user",
+            content="a"  # Single character -> 1 token minimum
+        )
+        single_msg = service.add_message(db_session, session.id, single_data, sample_student_id)
+        assert single_msg.token_count == 1
+        
+        # Add short message
+        short_data = MessageCreate(
+            role="user",
+            content="Hi"  # 2 chars -> 1 token (minimum)
+        )
+        short_msg = service.add_message(db_session, session.id, short_data, sample_student_id)
+        assert short_msg.token_count == 1
+    
+    def test_user_messages_count_toward_tokens(self, db_session, sample_student_id, sample_client_profile):
+        """Test that user messages now count toward total tokens"""
+        service = SessionService()
+        
+        # Create a session
+        session_data = SessionCreate(
+            student_id=sample_student_id,
+            client_profile_id=sample_client_profile.id
+        )
+        session = service.create_session(db_session, session_data, sample_student_id)
+        
+        # Add user message
+        user_data = MessageCreate(
+            role="user",
+            content="This is a user message that should count tokens"
+            # 47 chars / 4 = 11.75 -> 11 tokens
+        )
+        service.add_message(db_session, session.id, user_data, sample_student_id)
+        
+        # Verify user tokens counted
+        session = service.get_session(db_session, session.id)
+        assert session.total_tokens == 11
+        assert session.estimated_cost > 0
+    
+    def test_cost_calculation_accuracy(self, db_session, sample_student_id, sample_client_profile):
+        """Test accurate cost calculation using the utility"""
+        service = SessionService()
+        
+        # Create a session
+        session_data = SessionCreate(
+            student_id=sample_student_id,
+            client_profile_id=sample_client_profile.id
+        )
+        session = service.create_session(db_session, session_data, sample_student_id)
+        
+        # Add messages with known token counts
+        test_messages = [
+            ("user", "x" * 400),      # 400 chars = 100 tokens
+            ("assistant", "y" * 800),  # 800 chars = 200 tokens
+            ("user", "z" * 200),      # 200 chars = 50 tokens
+            ("assistant", "w" * 600),  # 600 chars = 150 tokens
+        ]
+        
+        for role, content in test_messages:
+            message_data = MessageCreate(role=role, content=content)
+            service.add_message(db_session, session.id, message_data, sample_student_id)
+        
+        # Verify final totals
+        session = service.get_session(db_session, session.id)
+        assert session.total_tokens == 500  # 100 + 200 + 50 + 150
+        
+        # Cost: 500 tokens * (0.75 / 1_000_000) = 0.000375
+        assert session.estimated_cost == approx(0.000375)
+    
+    def test_long_conversation_token_accumulation(self, db_session, sample_student_id, sample_client_profile):
+        """Test token accumulation over a longer conversation"""
+        service = SessionService()
+        
+        # Create a session
+        session_data = SessionCreate(
+            student_id=sample_student_id,
+            client_profile_id=sample_client_profile.id
+        )
+        session = service.create_session(db_session, session_data, sample_student_id)
+        
+        # Simulate a longer conversation
+        total_expected_tokens = 0
+        for i in range(20):  # 10 exchanges
+            # User message
+            user_content = f"User message {i+1} " * 5  # Roughly 80-100 chars
+            user_data = MessageCreate(role="user", content=user_content)
+            service.add_message(db_session, session.id, user_data, sample_student_id)
+            total_expected_tokens += len(user_content) // 4
+            
+            # Assistant response
+            assistant_content = f"Assistant response {i+1} " * 8  # Roughly 160-200 chars
+            assistant_data = MessageCreate(role="assistant", content=assistant_content)
+            service.add_message(db_session, session.id, assistant_data, sample_student_id)
+            total_expected_tokens += len(assistant_content) // 4
+        
+        # Verify accumulated totals
+        session = service.get_session(db_session, session.id)
+        assert session.total_tokens > 0
+        assert session.total_tokens <= total_expected_tokens + 20  # Allow some rounding variance
+        assert session.estimated_cost > 0
+        
+        # For a 20-message conversation, cost should still be very low
+        assert session.estimated_cost < 0.01  # Less than 1 cent

@@ -149,6 +149,57 @@ session.estimated_cost = (session.total_tokens / 100) * PRICE_PER_100_TOKENS
 - Claude Haiku: $0.003 per 100 tokens (~$0.003 per conversation)
 - Claude Sonnet: $0.03 per 100 tokens (~$0.03 per conversation)
 
+### Token Counting Utility Pattern
+Centralize token counting logic in a dedicated utility:
+```python
+# backend/utils/token_counter.py
+from typing import Dict
+
+# Pricing per 1M tokens
+PRICING: Dict[str, Dict[str, float]] = {
+    "haiku": {
+        "input": 0.25,
+        "output": 1.25,
+        "average": 0.75  # Used for MVP
+    },
+    "sonnet": {
+        "input": 3.00,
+        "output": 15.00,
+        "average": 9.00
+    }
+}
+
+def count_tokens(text: str) -> int:
+    """Estimate tokens using 4 chars ≈ 1 token rule"""
+    if not text:
+        return 0
+    return max(1, len(text) // 4)
+
+def calculate_cost(tokens: int, model: str = "haiku", token_type: str = "average") -> float:
+    """Calculate cost for given tokens"""
+    price_per_million = PRICING[model][token_type]
+    return (tokens / 1_000_000) * price_per_million
+```
+
+### Automatic Token Counting Pattern
+Count tokens automatically when not provided:
+```python
+# In add_message method
+if message.token_count == 0 and message.content:
+    message.token_count = count_tokens(message.content)
+
+# Update session totals for ALL messages (user and assistant)
+if message.token_count > 0:
+    session.total_tokens += message.token_count
+    cost_incurred = calculate_cost(message.token_count)
+    session.estimated_cost += cost_incurred
+```
+**Benefits**:
+- No need to manually count tokens
+- Consistent counting across the application
+- Both user and assistant messages tracked
+- Easy to switch pricing models
+
 ### Session Status Pattern
 Replace boolean flags with explicit status fields:
 ```python

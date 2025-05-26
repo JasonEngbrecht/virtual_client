@@ -5,7 +5,7 @@ Endpoints for teacher operations on virtual clients
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 from ..services import get_db
 from ..services.client_service import client_service
@@ -15,6 +15,8 @@ from ..services.enrollment_service import enrollment_service
 from ..models.client_profile import ClientProfile, ClientProfileCreate, ClientProfileUpdate
 from ..models.rubric import EvaluationRubric, EvaluationRubricCreate, EvaluationRubricUpdate
 from ..models.course_section import CourseSection, CourseSectionCreate, CourseSectionUpdate, SectionEnrollment, SectionEnrollmentCreate
+from ..models.assignment import Assignment, AssignmentCreate, AssignmentUpdate
+from ..services.assignment_service import assignment_service
 
 # Create router instance
 router = APIRouter(
@@ -323,6 +325,341 @@ async def list_rubrics(
     rubrics = rubric_service.get_teacher_rubrics(db, teacher_id)
     
     return rubrics
+
+
+# ==================== ASSIGNMENT ENDPOINTS ====================
+
+# GET /sections/{section_id}/assignments - List assignments in a section
+@router.get("/sections/{section_id}/assignments", response_model=List[Assignment])
+async def list_section_assignments(
+    section_id: str,
+    include_draft: bool = True,
+    db: Session = Depends(get_db),
+    teacher_id: str = Depends(get_current_teacher)
+):
+    """
+    Get all assignments for a specific course section.
+    
+    Only returns assignments if the section belongs to the current teacher.
+    
+    Args:
+        section_id: The ID of the section to get assignments for
+        include_draft: Whether to include unpublished (draft) assignments (default: True)
+        
+    Returns:
+        List of assignments in the section
+        
+    Raises:
+        404: Section not found
+        403: Section exists but belongs to another teacher
+    """
+    
+    # First check if section exists
+    section = section_service.get(db, section_id)
+    if not section:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Section with ID '{section_id}' not found"
+        )
+    
+    # Check if section belongs to this teacher
+    if section.teacher_id != teacher_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to view assignments for this section"
+        )
+    
+    # Get assignments for the section
+    assignments = assignment_service.list_section_assignments(
+        db, 
+        section_id=section_id,
+        teacher_id=teacher_id,
+        published_only=not include_draft
+    )
+    
+    return assignments
+
+
+# POST /sections/{section_id}/assignments - Create a new assignment
+@router.post("/sections/{section_id}/assignments", response_model=Assignment, status_code=201)
+async def create_assignment(
+    section_id: str,
+    assignment_data: AssignmentCreate,
+    db: Session = Depends(get_db),
+    teacher_id: str = Depends(get_current_teacher)
+):
+    """
+    Create a new assignment for a course section.
+    
+    Only allows creation if the section belongs to the current teacher.
+    The assignment will be created in draft state (unpublished) by default.
+    
+    Args:
+        section_id: The ID of the section to create assignment in
+        assignment_data: Assignment data from request body
+        
+    Returns:
+        Created assignment
+        
+    Raises:
+        404: Section not found
+        403: Section exists but belongs to another teacher
+        400: Invalid assignment data provided
+        500: Server error during creation
+    """
+    
+    # First check if section exists
+    section = section_service.get(db, section_id)
+    if not section:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Section with ID '{section_id}' not found"
+        )
+    
+    # Check if section belongs to this teacher
+    if section.teacher_id != teacher_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to create assignments in this section"
+        )
+    
+    try:
+        # Create the assignment
+        assignment = assignment_service.create_assignment_for_teacher(
+            db,
+            assignment_data,
+            section_id,
+            teacher_id
+        )
+        
+        if not assignment:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to create assignment"
+            )
+        
+        return assignment
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid assignment data: {str(e)}"
+        )
+    except Exception as e:
+        # Log the error in production
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while creating the assignment"
+        )
+
+
+# GET /assignments - List all assignments for teacher
+@router.get("/assignments", response_model=List[Assignment])
+async def list_teacher_assignments(
+    section_id: Optional[str] = None,
+    include_draft: bool = True,
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    teacher_id: str = Depends(get_current_teacher)
+):
+    """
+    Get all assignments across all sections for the current teacher.
+    
+    Can optionally filter by a specific section.
+    
+    Args:
+        section_id: Optional - filter to specific section
+        include_draft: Whether to include unpublished assignments (default: True)
+        skip: Number of records to skip for pagination
+        limit: Maximum number of records to return
+        
+    Returns:
+        List of assignments the teacher has created
+    """
+    
+    # Get assignments for this teacher
+    assignments = assignment_service.list_teacher_assignments(
+        db,
+        teacher_id=teacher_id,
+        section_id=section_id,
+        include_draft=include_draft,
+        skip=skip,
+        limit=limit
+    )
+    
+    return assignments
+
+
+# GET /assignments/{assignment_id} - Get a specific assignment
+@router.get("/assignments/{assignment_id}", response_model=Assignment)
+async def get_assignment(
+    assignment_id: str,
+    db: Session = Depends(get_db),
+    teacher_id: str = Depends(get_current_teacher)
+):
+    """
+    Get a specific assignment by ID.
+    
+    Only returns the assignment if it belongs to a section owned by the current teacher.
+    
+    Args:
+        assignment_id: The ID of the assignment to retrieve
+        
+    Returns:
+        Assignment if found and teacher has access
+        
+    Raises:
+        404: Assignment not found
+        403: Assignment exists but belongs to another teacher's section
+    """
+    
+    # Get the assignment with permission check
+    assignment = assignment_service.get(db, assignment_id, teacher_id)
+    
+    # Check if assignment exists or teacher has access
+    if not assignment:
+        # Try to get without permission check to determine proper error
+        assignment_unchecked = assignment_service.get(db, assignment_id)
+        if assignment_unchecked:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to access this assignment"
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Assignment with ID '{assignment_id}' not found"
+            )
+    
+    return assignment
+
+
+# PUT /assignments/{assignment_id} - Update an assignment
+@router.put("/assignments/{assignment_id}", response_model=Assignment)
+async def update_assignment(
+    assignment_id: str,
+    assignment_data: AssignmentUpdate,
+    db: Session = Depends(get_db),
+    teacher_id: str = Depends(get_current_teacher)
+):
+    """
+    Update an assignment's information.
+    
+    Only allows updates if the assignment belongs to a section owned by the current teacher.
+    Published assignments have limited update capabilities.
+    
+    Args:
+        assignment_id: The ID of the assignment to update
+        assignment_data: Updated assignment data (only provided fields will be updated)
+        
+    Returns:
+        Updated assignment
+        
+    Raises:
+        404: Assignment not found
+        403: Assignment exists but belongs to another teacher's section
+        400: Invalid update data or restricted field update on published assignment
+    """
+    
+    # First check if assignment exists
+    assignment = assignment_service.get(db, assignment_id)
+    if not assignment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Assignment with ID '{assignment_id}' not found"
+        )
+    
+    # Validate update data
+    update_dict = assignment_data.model_dump(exclude_unset=True)
+    if not update_dict:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No valid fields provided for update"
+        )
+    
+    # Update the assignment with permission check
+    try:
+        updated_assignment = assignment_service.update(
+            db,
+            assignment_id,
+            assignment_data,
+            teacher_id
+        )
+        
+        if not updated_assignment:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to update this assignment"
+            )
+        
+        return updated_assignment
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+
+# DELETE /assignments/{assignment_id} - Delete an assignment
+@router.delete("/assignments/{assignment_id}", status_code=204)
+async def delete_assignment(
+    assignment_id: str,
+    db: Session = Depends(get_db),
+    teacher_id: str = Depends(get_current_teacher)
+):
+    """
+    Delete an assignment.
+    
+    Only allows deletion if the assignment belongs to a section owned by the current teacher.
+    Cannot delete published assignments - they must be unpublished first.
+    
+    Args:
+        assignment_id: The ID of the assignment to delete
+        
+    Returns:
+        No content (204) on successful deletion
+        
+    Raises:
+        404: Assignment not found
+        403: Assignment exists but belongs to another teacher's section
+        409: Assignment is published and cannot be deleted
+    """
+    
+    # First check if assignment exists
+    assignment = assignment_service.get(db, assignment_id)
+    if not assignment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Assignment with ID '{assignment_id}' not found"
+        )
+    
+    # Check if assignment is published
+    if assignment.is_published:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot delete a published assignment. Please unpublish it first."
+        )
+    
+    # Delete the assignment with permission check
+    try:
+        success = assignment_service.delete(db, assignment_id, teacher_id)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to delete this assignment"
+            )
+    except HTTPException:
+        # Re-raise HTTP exceptions (like 403) without modification
+        raise
+    except Exception as e:
+        # Log the error in production
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while deleting the assignment"
+        )
+    
+    # Return 204 No Content on successful deletion
+    return None
 
 
 # ==================== ENROLLMENT ENDPOINTS ====================

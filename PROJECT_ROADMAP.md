@@ -89,7 +89,7 @@ Build the complete data management layer for teachers.
   - Add teacher permission checks
   - Implement create_for_teacher method
   - Write unit tests for service methods
-- Part 4: Assignment Teacher Endpoints (30-40 min)
+- ✅ Part 4: Assignment Teacher Endpoints (30 min actual)
   - Add assignment CRUD to teacher routes
   - Implement list/create/read/update/delete
   - Add response models and validation
@@ -268,14 +268,14 @@ Production readiness.
 ## ⏱️ Timeline Summary
 
 ### Phase 1 Breakdown (Foundation)
-- **Completed**: 16.6 hours
+- **Completed**: 17.1 hours
   - 1.1 Database: 2.5 hours ✅
   - 1.2 Clients: 3.25 hours ✅
   - 1.3 Rubrics: 3 hours ✅
   - 1.4 Sections: 4.5 hours ✅
-  - 1.5 Assignments: 1.85 hours (Parts 1-3 of 8) 🎯
-- **Remaining**: 6.4-11.4 hours
-  - 1.5 Assignments: 2.15-3.15 hours (Parts 4-8)
+  - 1.5 Assignments: 2.35 hours (Parts 1-4 of 8) 🎯
+- **Remaining**: 5.9-10.9 hours
+  - 1.5 Assignments: 1.65-2.65 hours (Parts 5-8)
   - 1.6 Sessions: 4-5 hours
   - 1.7 Evaluation: 3-4 hours
 
@@ -290,10 +290,10 @@ Production readiness.
 
 ## 🎯 Current Status
 
-- **Active Sprint**: Phase 1.5 - Assignment Management (Parts 1-3 of 8 complete)
-- **Completed**: ~72% of Phase 1 (16.6 of 23 hours minimum)
+- **Active Sprint**: Phase 1.5 - Assignment Management (Parts 1-4 of 8 complete)
+- **Completed**: ~74% of Phase 1 (17.1 of 23 hours minimum)
 - **Previous Sprint**: Phase 1.4 Complete - All 8 parts ✅
-- **Next Part**: Phase 1.5 Part 4 - Assignment Teacher Endpoints
+- **Next Part**: Phase 1.5 Part 5 - Assignment Publishing
 
 ## 🚀 Key Milestones
 

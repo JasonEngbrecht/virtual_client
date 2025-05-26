@@ -12,6 +12,7 @@ from backend.models.evaluation import EvaluationDB
 from backend.models.rubric import EvaluationRubricDB
 from backend.models.session import SessionDB
 from backend.models.course_section import CourseSectionDB, SectionEnrollmentDB
+from backend.models.assignment import AssignmentDB, AssignmentClientDB
 
 
 @pytest.fixture
@@ -115,6 +116,101 @@ def test_enrollment(db_session, test_section):
     db_session.commit()
     db_session.refresh(enrollment)
     return enrollment
+
+
+@pytest.fixture
+def test_section_with_teacher(db_session):
+    """Create a test course section and return teacher/section info"""
+    # Import here to avoid import order issues
+    from backend.models.course_section import CourseSectionDB
+    
+    section = CourseSectionDB(
+        id=str(uuid4()),
+        teacher_id="teacher-123",  # Match the mock authentication
+        name="Test Section for Assignments",
+        description="Test section for assignment integration tests",
+        course_code="SW201",
+        term="Spring 2025",
+        is_active=True,
+        settings={}
+    )
+    db_session.add(section)
+    db_session.commit()
+    db_session.refresh(section)
+    
+    return {
+        "section_id": section.id,
+        "teacher_id": section.teacher_id,
+        "section": section
+    }
+
+
+@pytest.fixture
+def test_assignments(db_session, test_section_with_teacher):
+    """Create test assignments for testing"""
+    # Import here to avoid import order issues
+    from backend.models.assignment import AssignmentDB, AssignmentType
+    from datetime import datetime, timedelta
+    
+    assignments = []
+    
+    # Draft assignment
+    assignment1 = AssignmentDB(
+        id=str(uuid4()),
+        section_id=test_section_with_teacher["section_id"],
+        title="Test Assignment 1",
+        description="Draft assignment for testing",
+        type=AssignmentType.PRACTICE,
+        settings={"time_limit": 30},
+        is_published=False,
+        max_attempts=3,
+        created_at=datetime.utcnow()
+    )
+    db_session.add(assignment1)
+    assignments.append(assignment1)
+    
+    # Published assignment
+    assignment2 = AssignmentDB(
+        id=str(uuid4()),
+        section_id=test_section_with_teacher["section_id"],
+        title="Test Assignment 2",
+        description="Published assignment for testing",
+        type=AssignmentType.GRADED,
+        settings={"allow_notes": True},
+        is_published=True,
+        available_from=datetime.utcnow() - timedelta(days=1),
+        due_date=datetime.utcnow() + timedelta(days=7),
+        max_attempts=1,
+        created_at=datetime.utcnow() + timedelta(seconds=1)
+    )
+    db_session.add(assignment2)
+    assignments.append(assignment2)
+    
+    db_session.commit()
+    for assignment in assignments:
+        db_session.refresh(assignment)
+    
+    return assignments
+
+
+@pytest.fixture
+def test_assignment_other_teacher(db_session, test_section_other_teacher):
+    """Create a test assignment for another teacher"""
+    # Import here to avoid import order issues
+    from backend.models.assignment import AssignmentDB, AssignmentType
+    
+    assignment = AssignmentDB(
+        id=str(uuid4()),
+        section_id=test_section_other_teacher.id,
+        title="Other Teacher Assignment",
+        description="Assignment owned by another teacher",
+        type=AssignmentType.PRACTICE,
+        is_published=False
+    )
+    db_session.add(assignment)
+    db_session.commit()
+    db_session.refresh(assignment)
+    return assignment
 
 
 @pytest.fixture

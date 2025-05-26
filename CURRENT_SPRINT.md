@@ -1,18 +1,27 @@
 # Current Sprint: MVP - Minimum Viable Conversation
 
 ## 📍 Session Handoff
-**Last Updated**: 2025-01-29 12:30
-**Last Completed**: Part 6: Token Counting - Complete with all tests passing  
-**Ready to Start**: Day 3: Anthropic Integration
-**Tests Passing**: All tests passing ✅ (401 tests)
+**Last Updated**: 2025-01-29 17:30
+**Last Completed**: Day 3 Part 1: Anthropic API Setup - Complete with all tests passing  
+**Ready to Start**: Day 3 Part 2: Prompt Generation Service
+**Tests Passing**: All tests passing ✅ (422 tests)
 **Notes for Next Session**: 
-- Created token counting utility in backend/utils/token_counter.py
-- Integrated automatic token counting for messages without explicit counts
-- Both user and assistant messages now count toward session totals
-- Implemented flexible pricing support (Haiku: $0.75/1M avg, Sonnet: $9.00/1M avg)
-- Created 29 unit tests for token counter utility
-- Updated session service with 6 additional integration tests
-- All Day 1-2 tasks complete, ready for Anthropic API integration
+- Created anthropic_service.py with full API integration
+- Implemented retry logic with exponential backoff using tenacity
+- Added both sync and async response generation methods
+- Integrated with existing token counting utility
+- Model auto-selection: Haiku for dev ($0.75/1M), Sonnet for prod ($9.00/1M)
+- Created 21 unit tests + 7 integration tests for Anthropic service
+- Live API connection test working with valid key
+- Added anthropic==0.18.1, tenacity==8.2.3, python-dotenv==1.0.0 to requirements.txt
+
+**Agreed Implementation Plan for Day 3**:
+Breaking Anthropic Integration into 5 manageable parts:
+1. **Part 1: Anthropic API Setup** - Create service, config, test connection
+2. **Part 2: Prompt Generation** - Convert client profiles to system prompts
+3. **Part 3: Conversation Handler** - Integrate session, messages, and AI
+4. **Part 4: Rate Limiting** - Per-user and global limits
+5. **Part 5: Error Handling** - Graceful fallbacks and logging
 
 ## 📍 Where We Are in the Journey
 - **Previous Phase**: 1.5 Assignment Management ✅ (All parts complete)
@@ -115,12 +124,63 @@ Build a minimal but functional conversation system to validate the core experien
 ### Day 3: Anthropic Integration
 **Goal**: Connect AI and start generating responses
 
-- [ ] Set up Anthropic API connection
-- [ ] Create prompt generation from client profiles
+#### Detailed Implementation Plan (5 Parts):
+
+**Part 1: Anthropic API Setup** ✅
+- [x] Create `backend/services/anthropic_service.py`
+- [x] Set up API client with configuration
+- [x] Add environment variable handling for API key (ANTHROPIC_API_KEY)
+- [x] Create basic test connection method
+- [x] Add configuration for model selection (Haiku for testing, Sonnet for production)
+- [x] **Test**: Basic API connection and response (21 unit tests, 7 integration tests)
+
+**Part 2: Prompt Generation Service**
+- [ ] Create `backend/services/prompt_service.py`
+- [ ] Implement `generate_system_prompt(client: ClientProfile) -> str`
   ```python
   def generate_system_prompt(client: ClientProfile) -> str:
-      # Convert profile to personality prompt
+      # Convert profile attributes to personality instructions
+      # Include context, background, behavior patterns
+      # Add educational safeguards
+      # Set conversation boundaries
   ```
+- [ ] Include personality traits from client profile
+- [ ] Add educational context and boundaries
+- [ ] Create prompt templates for consistency
+- [ ] **Test**: Generate prompts for various client types
+
+**Part 3: Conversation Handler Service**
+- [ ] Create `backend/services/conversation_service.py`
+- [ ] Integrate with session_service, anthropic_service, and prompt_service
+- [ ] Methods to implement:
+  - `start_conversation(student_id, client_id) -> Session`
+  - `send_message(session_id, content, user) -> Message`
+  - `get_ai_response(session, user_message) -> Message`
+- [ ] Handle message flow (user input → AI response → storage)
+- [ ] Automatic token counting and cost tracking via existing utilities
+- [ ] Maintain conversation context
+- [ ] **Test**: Full conversation flow with token tracking
+
+**Part 4: Rate Limiting**
+- [ ] Add rate limiting utilities in `backend/utils/rate_limiter.py`
+- [ ] Implement per-user limits (e.g., 10 messages/minute)
+- [ ] Implement global limits (e.g., 1000 messages/hour)
+- [ ] Use in-memory storage for MVP (prepare for Redis later)
+- [ ] Add decorators for easy application
+- [ ] **Test**: Rate limiting under various scenarios
+
+**Part 5: Error Handling & Robustness**
+- [ ] Add comprehensive error handling to anthropic_service
+- [ ] Implement retry logic with exponential backoff
+- [ ] User-friendly error messages for common failures
+- [ ] Fallback responses for API outages
+- [ ] Logging for debugging and monitoring
+- [ ] Cost alerts when approaching limits
+- [ ] **Test**: Error scenarios and recovery
+
+#### Original Task List (for reference):
+- [ ] Set up Anthropic API connection
+- [ ] Create prompt generation from client profiles
 - [ ] Implement token counting on all API calls
 - [ ] Add rate limiting (per user and global)
 - [ ] Create conversation handler service

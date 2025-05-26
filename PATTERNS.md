@@ -412,6 +412,91 @@ Create singleton at module level:
 service_name = ServiceName(ModelDB)
 ```
 
+### AI/LLM Service Pattern
+Centralized service for all AI interactions:
+```python
+# backend/services/anthropic_service.py
+class AnthropicService:
+    def __init__(self, api_key: Optional[str] = None):
+        self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
+        if not self.api_key:
+            raise ValueError("ANTHROPIC_API_KEY not provided")
+        
+        # Initialize both sync and async clients
+        self.client = anthropic.Anthropic(api_key=self.api_key)
+        self.async_client = AsyncAnthropic(api_key=self.api_key)
+        self.model = self._get_model_config()
+    
+    def _get_model_config(self) -> str:
+        """Auto-select model based on environment"""
+        environment = os.getenv("APP_ENV", "development")
+        model_override = os.getenv("ANTHROPIC_MODEL")  # Allow override
+        
+        if model_override:
+            return model_override
+        
+        if environment == "production":
+            return "claude-3-sonnet-20240229"  # More powerful
+        return "claude-3-haiku-20240307"  # Cheaper for dev
+
+# Global singleton pattern
+_anthropic_service_instance = None
+
+def get_anthropic_service() -> AnthropicService:
+    global _anthropic_service_instance
+    if _anthropic_service_instance is None:
+        _anthropic_service_instance = AnthropicService()
+    return _anthropic_service_instance
+```
+
+**Key Features**:
+- Environment-based model selection (Haiku for dev, Sonnet for prod)
+- Singleton pattern for consistent instance
+- Both sync and async support
+- Integrated with token counting utility
+- Comprehensive error handling
+
+### Retry Pattern for External APIs
+Use tenacity for automatic retries on rate limits:
+```python
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=4, max=10),
+    retry=retry_if_exception_type(anthropic.RateLimitError)
+)
+def generate_response(self, messages, system_prompt=None, max_tokens=500):
+    # API call that will retry on rate limits
+    response = self.client.messages.create(
+        model=self.model,
+        messages=messages,
+        system=system_prompt,
+        max_tokens=max_tokens,
+        temperature=0.7
+    )
+    return response.content[0].text
+```
+
+### AI Service Error Handling Pattern
+```python
+def test_connection(self) -> Dict[str, Any]:
+    try:
+        response = self.client.messages.create(...)
+        return {
+            "status": "connected",
+            "model": self.model,
+            "environment": self.environment,
+            "test_response": response.content[0].text
+        }
+    except anthropic.APIConnectionError as e:
+        return {"status": "error", "error_type": "connection", "error": str(e)}
+    except anthropic.AuthenticationError as e:
+        return {"status": "error", "error_type": "authentication", "error": str(e)}
+    except Exception as e:
+        return {"status": "error", "error_type": "unknown", "error": str(e)}
+```
+
 ### Service Method Naming
 - `get_*` - Retrieve data
 - `create_*` - Create new records

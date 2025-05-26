@@ -23,3 +23,12 @@ python-multipart==0.0.6
 
 # For async support
 anyio==4.9.0
+
+# AI/LLM Integration
+anthropic==0.18.1
+
+# Retry logic
+tenacity==8.2.3
+
+# Environment variables
+python-dotenv==1.0.0

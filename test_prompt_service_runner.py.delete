@@ -1,0 +1,22 @@
+import subprocess
+import sys
+
+# Run the prompt service tests
+print("Running prompt service unit tests...")
+result = subprocess.run([
+    sys.executable, 
+    "run_tests.py", 
+    "tests/unit/test_prompt_service.py",
+    "-v"
+])
+
+if result.returncode == 0:
+    print("\nUnit tests passed! Now running integration tests...")
+    result = subprocess.run([
+        sys.executable,
+        "run_tests.py",
+        "tests/integration/test_prompt_service_integration.py",
+        "-v"
+    ])
+
+sys.exit(result.returncode)

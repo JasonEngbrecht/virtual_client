@@ -1,0 +1,18 @@
+import subprocess
+import sys
+
+# Run all prompt service tests
+print("Running ALL prompt service tests...")
+result = subprocess.run([
+    sys.executable, 
+    "run_tests.py", 
+    "tests/unit/test_prompt_service.py",
+    "tests/integration/test_prompt_service_integration.py",
+    "-v"
+])
+
+print("\n" + "="*80)
+print(f"Test Result: {'PASSED' if result.returncode == 0 else 'FAILED'}")
+print("="*80)
+
+sys.exit(result.returncode)

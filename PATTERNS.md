@@ -226,6 +226,32 @@ service_name = ServiceName(ModelDB)
 - `can_*` - Permission checks
 - `is_*` - Boolean checks
 - `publish_*` / `unpublish_*` - State transitions
+- `list_*` - Retrieve multiple items with filtering
+
+### Date-Based Filtering Pattern
+For resources with availability windows:
+```python
+def list_available_assignments(self, db: Session, section_ids: List[str], as_of: Optional[datetime] = None):
+    if not as_of:
+        as_of = datetime.utcnow()
+    
+    query = db.query(AssignmentDB).filter(
+        AssignmentDB.section_id.in_(section_ids),
+        AssignmentDB.is_published == True
+    )
+    
+    # Filter by available_from (null or past date)
+    query = query.filter(
+        (AssignmentDB.available_from == None) | (AssignmentDB.available_from <= as_of)
+    )
+    
+    # Filter by due_date (null or future date) 
+    query = query.filter(
+        (AssignmentDB.due_date == None) | (AssignmentDB.due_date > as_of)
+    )
+    
+    return query.all()
+```
 
 ### Business Logic Enforcement
 Enforce business rules at the service layer, not just API layer:
@@ -694,6 +720,50 @@ service_instance = ServiceClass()
 2. Use 404 instead of 403 (don't reveal existence)
 3. Limit data exposure (no other students' info)
 4. Test access controls thoroughly
+
+### Student Assignment Viewing Pattern
+Established in Phase 1.5 Part 7:
+
+```python
+# Pattern 1: Check all access conditions and return 404 for any failure
+async def get_student_assignment(assignment_id: str, student_id: str):
+    assignment = assignment_service.get(db, assignment_id)
+    
+    # Return 404 for ANY of these conditions:
+    if not assignment:
+        raise HTTPException(404, "Assignment not found")
+    
+    if not enrollment_service.is_student_enrolled(db, assignment.section_id, student_id):
+        raise HTTPException(404, "Assignment not found")  # Same message!
+    
+    if not assignment.is_published:
+        raise HTTPException(404, "Assignment not found")  # Same message!
+    
+    # Date checks
+    now = datetime.utcnow()
+    if assignment.available_from and now < assignment.available_from:
+        raise HTTPException(404, "Assignment not found")  # Same message!
+    
+    if assignment.due_date and now > assignment.due_date:
+        raise HTTPException(404, "Assignment not found")  # Same message!
+    
+    return assignment
+
+# Pattern 2: Enrich responses with related data
+response_assignments = []
+for assignment in assignments:
+    assignment_dict = Assignment.model_validate(assignment).model_dump()
+    assignment_dict['section_name'] = section_map.get(assignment.section_id)
+    
+    # Add computed fields
+    stats = assignment_service.get_assignment_stats(db, assignment.id)
+    assignment_dict['client_count'] = stats['active_clients']
+    
+    response_assignments.append(Assignment(**assignment_dict))
+
+# Pattern 3: Filter only active relationships for students
+active_clients = [client for client in clients if client.is_active]
+```
 
 ### Implementing Soft Delete
 

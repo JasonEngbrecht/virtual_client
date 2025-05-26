@@ -99,16 +99,16 @@ Build the complete data management layer for teachers.
   - Implement date validation logic
   - Add draft vs published filtering
   - Write tests for state transitions
-- Part 6: Assignment-Client Management (35-45 min)
+- ✅ Part 6: Assignment-Client Management (45 min actual)
   - Add endpoints for managing assignment clients
   - Implement add/remove client with rubric
   - Add bulk operations support
-  - Write integration tests
-- Part 7: Student Assignment Viewing (30-40 min)
+  - Write integration tests (25 tests)
+- ✅ Part 7: Student Assignment Viewing (30 min actual)
   - Add student endpoints for assignments
   - Filter by enrollment and publish status
   - Show only date-appropriate assignments
-  - Write integration tests
+  - Write integration tests (15 tests)
 - Part 8: Testing & Documentation (30-40 min)
   - Run full test suite
   - Fix any regressions
@@ -268,14 +268,14 @@ Production readiness.
 ## ⏱️ Timeline Summary
 
 ### Phase 1 Breakdown (Foundation)
-- **Completed**: 17.5 hours
+- **Completed**: 20 hours
   - 1.1 Database: 2.5 hours ✅
   - 1.2 Clients: 3.25 hours ✅
   - 1.3 Rubrics: 3 hours ✅
   - 1.4 Sections: 4.5 hours ✅
-  - 1.5 Assignments: 2.5 hours (Parts 1-5 of 8) 🎯
-- **Remaining**: 5.5-10.5 hours
-  - 1.5 Assignments: 1.5-2.5 hours (Parts 6-8)
+  - 1.5 Assignments: 4 hours (Parts 1-7 of 8) 🎯
+- **Remaining**: 3-8 hours
+  - 1.5 Assignments: 0.5-1 hour (Part 8 only)
   - 1.6 Sessions: 4-5 hours
   - 1.7 Evaluation: 3-4 hours
 
@@ -290,10 +290,10 @@ Production readiness.
 
 ## 🎯 Current Status
 
-- **Active Sprint**: Phase 1.5 - Assignment Management (Parts 1-5 of 8 complete)
-- **Completed**: ~75% of Phase 1 (17.5 of 23 hours minimum)
+- **Active Sprint**: Phase 1.5 - Assignment Management (Parts 1-7 of 8 complete)
+- **Completed**: ~87% of Phase 1 (20 of 23 hours minimum)
 - **Previous Sprint**: Phase 1.4 Complete - All 8 parts ✅
-- **Next Part**: Phase 1.5 Part 6 - Assignment-Client Management
+- **Next Part**: Phase 1.5 Part 8 - Testing & Documentation
 
 ## 🚀 Key Milestones
 

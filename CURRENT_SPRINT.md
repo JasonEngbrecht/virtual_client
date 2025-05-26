@@ -1,18 +1,19 @@
 # Current Sprint: MVP - Minimum Viable Conversation
 
 ## 📍 Session Handoff
-**Last Updated**: 2025-01-29 10:30
-**Last Completed**: Part 4: Basic Session Service - Complete with all tests passing
-**Ready to Start**: Part 5: Message Operations
-**Tests Passing**: All tests passing ✅ (363 tests)
+**Last Updated**: 2025-01-29 11:45
+**Last Completed**: Part 5: Message Operations - Complete with all tests passing
+**Ready to Start**: Part 6: Token Counting
+**Tests Passing**: All tests passing ✅ (380 tests)
 **Notes for Next Session**: 
-- Created session_service.py following established service patterns
-- Implemented create_session, get_session, end_session with student validation
-- Added helper methods: get_student_sessions, get_active_session, update_token_count
-- Created 20 comprehensive unit tests covering all functionality
-- Fixed floating-point precision issues using pytest.approx()
-- Session service ready for message operations integration
-- Can now safely delete legacy files: database/schema.sql and backend/scripts/init_db.py
+- Added message operations to session_service.py: add_message() and get_messages()
+- Implemented automatic sequence numbering for messages
+- Added pagination support for message retrieval
+- Integrated token counting with cost calculation for assistant messages
+- Created 17 comprehensive unit tests for message operations
+- Messages can only be added to active sessions with proper student validation
+- Cost calculation uses Haiku pricing: $0.75 per 1M tokens (average)
+- Ready to implement dedicated token counting utility in Part 6
 
 ## 📍 Where We Are in the Journey
 - **Previous Phase**: 1.5 Assignment Management ✅ (All parts complete)
@@ -90,11 +91,11 @@ Build a minimal but functional conversation system to validate the core experien
 - Fixed floating-point precision issues in tests using pytest.approx()
 - Comprehensive test coverage including edge cases and permissions
 
-**Part 5: Message Operations**
-- [ ] Add to session service: add_message, get_messages
-- [ ] Implement pagination for message history
-- [ ] Maintain sequence numbers
-- [ ] **Test**: Message creation and retrieval
+**Part 5: Message Operations** ✅
+- [x] Add to session service: add_message, get_messages
+- [x] Implement pagination for message history
+- [x] Maintain sequence numbers
+- [x] **Test**: Message creation and retrieval (17 tests created, all passing)
 
 **Part 6: Token Counting**
 - [ ] Add token counting utility function

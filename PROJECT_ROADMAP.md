@@ -103,12 +103,12 @@ We've already built a solid foundation with full CRUD operations:
 
 ### Week 1 Sprint
 
-#### Day 1-2: Simplified Session & Message Models (66% complete - Parts 1-4 of 6 done)
+#### Day 1-2: Simplified Session & Message Models (83% complete - Parts 1-5 of 6 done)
 - ✅ Create minimal session tracking
 - ✅ Separate messages table (not JSON)
 - ✅ Token counting from the start
 - ✅ Basic session states
-- 🚧 Message operations (Part 5 in progress)
+- ✅ Message operations (Part 5 complete)
 - ⏳ Token counting integration (Part 6 pending)
 
 ```python

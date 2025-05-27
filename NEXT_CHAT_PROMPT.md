@@ -44,11 +44,11 @@ When completing work:
 5. **Keep it focused** - Less is more
 
 ## 🧪 After Implementation:
-1. **Write tests** for new functionality (see `tests/TESTING_GUIDE.md`)
-2. **Run tests** listed in "Tests to Run" section of CURRENT_SPRINT
-3. **Fix any failures** before proceeding
-4. **STOP AND CONFIRM** - Show test results and wait for approval
-5. **Only then** proceed to documentation updates
+1. **Manual Testing First** - Run the feature and verify it works
+2. **One Happy Path Test** - Write ONE test that verifies core functionality
+3. **Document Issues** - Note edge cases in comments, don't fix everything
+4. **STOP AND CONFIRM** - Show it working, get approval to proceed
+5. **Move Fast** - If it demos well, ship it
 
 ## 🏁 Session End (ONLY after tests pass and you confirm):
 1. **WAIT FOR CONFIRMATION** that all tests are passing

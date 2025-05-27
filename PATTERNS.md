@@ -1332,6 +1332,48 @@ def test_permission_denied(client: TestClient):
   - `test_update_client_not_found`
   - `test_delete_rubric_in_use_fails`
 
+### MVP/Prototype Testing Pattern
+
+During rapid prototyping phases (like Streamlit MVP):
+
+```python
+# One simple integration test per feature
+def test_feature_happy_path():
+    """Test the core functionality works"""
+    # Setup
+    data = create_test_data()
+    
+    # Execute
+    result = feature_function(data)
+    
+    # Verify core behavior
+    assert result is not None
+    assert result.status == "success"
+    # Skip edge cases for MVP
+
+# Document edge cases for later
+"""
+TODO: After MVP validation, add tests for:
+- Empty data handling
+- Permission boundaries  
+- Concurrent access
+- Error scenarios
+"""
+```
+
+**What NOT to test in MVP:**
+- Every error scenario
+- UI components (Streamlit internals)
+- Permission edge cases
+- Performance optimizations
+- Every helper function
+
+**What TO test in MVP:**
+- Database connectivity
+- API authentication works
+- Core business logic (e.g., cost calculation)
+- Happy path for each major feature
+
 ### Service Mocking Pattern
 Properly mock services based on their import pattern:
 
@@ -2582,6 +2624,69 @@ def start_conversation_with_greeting(db, student, client_id):
 - Distinguish between expected errors (ValueError) and unexpected ones
 - Provide context in error messages
 - Use specific error types for different failure modes
+
+### Data Export Pattern
+Provide downloadable exports of data in user-friendly formats:
+
+```python
+def format_conversation_export(conversation: Dict[str, Any]) -> str:
+    """Format conversation data for export as markdown"""
+    session = conversation['session']
+    client = conversation['client']
+    messages = conversation.get('messages', [])
+    
+    # Build structured markdown
+    export_lines = [
+        f"# Conversation Export",
+        f"\n## Session Information",
+        f"- **Session ID**: {session.id}",
+        f"- **Client**: {client.name}",
+        f"- **Started**: {session.started_at.strftime('%Y-%m-%d %H:%M:%S')}",
+        f"- **Total Tokens**: {format_tokens(session.total_tokens or 0)}",
+        f"- **Estimated Cost**: {format_cost(session.estimated_cost or 0.0)}",
+        f"\n## Client Profile",
+        # ... client details
+        f"\n## Conversation Transcript\n"
+    ]
+    
+    # Add timestamped messages
+    for msg in messages:
+        timestamp = msg.timestamp.strftime('%H:%M:%S')
+        role = "Student" if msg.role == "user" else "Client"
+        tokens_info = f" ({msg.token_count} tokens)" if msg.token_count else ""
+        
+        export_lines.extend([
+            f"**[{timestamp}] {role}**{tokens_info}:",
+            f"{msg.content}",
+            ""  # Empty line for readability
+        ])
+    
+    return "\n".join(export_lines)
+
+# In Streamlit UI
+export_text = format_conversation_export(conversation_data)
+st.download_button(
+    label="📥 Export Conversation",
+    data=export_text,
+    file_name=f"conversation_{client.name.replace(' ', '_')}_{timestamp}.md",
+    mime="text/markdown",
+    key=f"export_{session.id}"  # Unique key for button
+)
+```
+
+**Key Features**:
+- Use markdown for readability and compatibility
+- Include all relevant metadata (IDs, timestamps, costs)
+- Structure data hierarchically (session → client → messages)
+- Add timestamps and token counts to messages
+- Use descriptive filenames with sanitized client names
+- Unique keys for download buttons in loops
+
+**Export Formats by Use Case**:
+- **Conversations**: Markdown (human-readable, preserves formatting)
+- **Data Tables**: CSV (Excel-compatible, easy analysis)
+- **Reports**: PDF (professional, print-ready)
+- **Configurations**: JSON (machine-readable, re-importable)
 
 ---
 

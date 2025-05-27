@@ -1,0 +1,57 @@
+"""
+Quick test to verify student interface works
+"""
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from backend.database import init_database
+from backend.services.client_service import ClientService
+from backend.models.client import ClientProfileCreate
+from mvp.utils import get_database_connection
+
+# Initialize database
+init_database()
+
+# Create a test client
+db = get_database_connection()
+client_service = ClientService()
+
+# Check if we already have test clients
+existing_clients = client_service.get_teacher_clients(db, "teacher-1")
+print(f"Found {len(existing_clients)} existing clients")
+
+if len(existing_clients) == 0:
+    # Create a test client
+    client_data = ClientProfileCreate(
+        name="Maya Rodriguez",
+        age=28,
+        pronouns="she/her",
+        cultural_background="Latina, first-generation immigrant",
+        socioeconomic_status="Working class",
+        family_structure="Single mother with two children",
+        education_level="Some college",
+        occupation="Restaurant server",
+        living_situation="Small apartment",
+        personality_traits=["resilient", "protective", "tired"],
+        behavioral_patterns=["puts children first", "works multiple jobs"],
+        communication_style="Direct but polite",
+        emotional_state="Overwhelmed but hopeful",
+        coping_mechanisms=["prayer", "talking to sister"],
+        support_network="Extended family, church community",
+        goals=["Better job", "Stable housing"],
+        challenges=["Childcare", "Language barrier sometimes"],
+        strengths=["Strong work ethic", "Community connections"],
+        scenario="Seeking resources for childcare assistance",
+        conversation_style_guide="Speaks with slight accent, very focused on practical solutions"
+    )
+    
+    client = client_service.create_client_for_teacher(db, client_data, "teacher-1")
+    print(f"Created test client: {client.name}")
+else:
+    print("Test clients already exist")
+
+db.close()
+
+print("\nStudent interface is ready to test!")
+print("Run: streamlit run mvp/student_practice.py")

@@ -11,8 +11,17 @@ Part of the MVP to validate conversation quality.
 """
 
 import streamlit as st
-from typing import Optional
-from utils import (
+from typing import Optional, List, Dict, Any
+from datetime import datetime, timedelta
+import io
+import sys
+from pathlib import Path
+
+# Add project root to path
+project_root = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(project_root))
+
+from mvp.utils import (
     setup_page_config,
     show_info_message,
     show_error_message,
@@ -26,12 +35,6 @@ from utils import (
     format_cost
 )
 
-# Import backend models and services
-import sys
-from pathlib import Path
-project_root = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(project_root))
-
 from backend.models.client_profile import (
     ClientProfileCreate,
     ClientProfile,
@@ -41,7 +44,10 @@ from backend.models.client_profile import (
 )
 from backend.services.client_service import client_service
 from backend.services.conversation_service import conversation_service
+from backend.services.session_service import session_service
 from backend.models.auth import StudentAuth
+from backend.models.session import SessionDB
+from backend.models.message import MessageDB
 
 
 def create_client_form():
@@ -137,6 +143,298 @@ def create_client_form():
             return client_data
     
     return None
+
+
+def fetch_conversation_history(teacher_id: str) -> List[Dict[str, Any]]:
+    """
+    Fetch all conversation sessions for a teacher's test conversations.
+    
+    Args:
+        teacher_id: The teacher's ID
+        
+    Returns:
+        List of conversation sessions with client info
+    """
+    conversations = []
+    
+    try:
+        db = get_database_connection()
+        
+        # Get mock student ID (teacher test conversations use this)
+        mock_student = get_mock_student()
+        
+        # Get all sessions for the mock student (these are teacher test sessions)
+        sessions = session_service.get_student_sessions(
+            db=db,
+            student_id=mock_student.student_id,
+            limit=100  # Get up to 100 conversations
+        )
+        
+        # Enrich with client information
+        for session in sessions:
+            client = client_service.get(db, session.client_profile_id)
+            if client:
+                conversations.append({
+                    'session': session,
+                    'client': client,
+                    'messages': session_service.get_messages(db, session.id)
+                })
+        
+        return conversations
+        
+    except Exception as e:
+        show_error_message(f"Error fetching conversation history: {str(e)}")
+        return []
+    finally:
+        if 'db' in locals():
+            db.close()
+
+
+def calculate_conversation_metrics(conversations: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Calculate aggregate metrics from conversation history.
+    
+    Args:
+        conversations: List of conversation data
+        
+    Returns:
+        Dictionary with calculated metrics
+    """
+    if not conversations:
+        return {
+            'total_conversations': 0,
+            'total_cost': 0.0,
+            'total_tokens': 0,
+            'avg_cost_per_conversation': 0.0,
+            'avg_tokens_per_conversation': 0,
+            'avg_messages_per_conversation': 0,
+            'avg_response_time': None
+        }
+    
+    total_conversations = len(conversations)
+    total_cost = sum(conv['session'].estimated_cost or 0.0 for conv in conversations)
+    total_tokens = sum(conv['session'].total_tokens or 0 for conv in conversations)
+    
+    # Calculate average response times
+    response_times = []
+    for conv in conversations:
+        messages = conv.get('messages', [])
+        if messages and len(messages) >= 2:
+            # Look for user messages followed by assistant responses
+            for i in range(len(messages) - 1):
+                if messages[i].role == 'user' and messages[i + 1].role == 'assistant':
+                    time_diff = (messages[i + 1].timestamp - messages[i].timestamp).total_seconds()
+                    response_times.append(time_diff)
+    
+    avg_response_time = sum(response_times) / len(response_times) if response_times else None
+    
+    total_messages = sum(len(conv.get('messages', [])) for conv in conversations)
+    
+    return {
+        'total_conversations': total_conversations,
+        'total_cost': total_cost,
+        'total_tokens': total_tokens,
+        'avg_cost_per_conversation': total_cost / total_conversations if total_conversations > 0 else 0.0,
+        'avg_tokens_per_conversation': total_tokens // total_conversations if total_conversations > 0 else 0,
+        'avg_messages_per_conversation': total_messages // total_conversations if total_conversations > 0 else 0,
+        'avg_response_time': avg_response_time
+    }
+
+
+def format_conversation_export(conversation: Dict[str, Any]) -> str:
+    """
+    Format a conversation for export as markdown.
+    
+    Args:
+        conversation: Conversation data with session, client, and messages
+        
+    Returns:
+        Markdown formatted string
+    """
+    session = conversation['session']
+    client = conversation['client']
+    messages = conversation.get('messages', [])
+    
+    # Start building the export
+    export_lines = [
+        f"# Conversation Export",
+        f"\n## Session Information",
+        f"- **Session ID**: {session.id}",
+        f"- **Client**: {client.name}",
+        f"- **Started**: {session.started_at.strftime('%Y-%m-%d %H:%M:%S')}",
+        f"- **Ended**: {session.ended_at.strftime('%Y-%m-%d %H:%M:%S') if session.ended_at else 'Active'}",
+        f"- **Status**: {session.status}",
+        f"- **Total Tokens**: {format_tokens(session.total_tokens or 0)}",
+        f"- **Estimated Cost**: {format_cost(session.estimated_cost or 0.0)}",
+        f"\n## Client Profile",
+        f"- **Name**: {client.name}",
+        f"- **Age**: {client.age}",
+        f"- **Gender**: {client.gender or 'Not specified'}",
+        f"- **Issues**: {', '.join(client.issues) if client.issues else 'None specified'}",
+        f"- **Personality Traits**: {', '.join(client.personality_traits) if client.personality_traits else 'None specified'}",
+        f"\n## Conversation Transcript\n"
+    ]
+    
+    # Add messages
+    for msg in messages:
+        timestamp = msg.timestamp.strftime('%H:%M:%S')
+        role = "Student" if msg.role == "user" else "Client"
+        tokens_info = f" ({msg.token_count} tokens)" if msg.token_count else ""
+        
+        export_lines.append(f"**[{timestamp}] {role}**{tokens_info}:")
+        export_lines.append(f"{msg.content}")
+        export_lines.append("")  # Empty line for readability
+    
+    # Add session notes if any
+    if session.session_notes:
+        export_lines.extend([
+            f"\n## Session Notes",
+            f"{session.session_notes}"
+        ])
+    
+    return "\n".join(export_lines)
+
+
+def display_conversation_history(teacher_id: str):
+    """
+    Display conversation history and metrics for a teacher.
+    
+    Args:
+        teacher_id: The teacher's ID
+    """
+    st.subheader("📊 Conversation History & Metrics")
+    
+    # Fetch conversation history
+    conversations = fetch_conversation_history(teacher_id)
+    
+    if not conversations:
+        show_info_message(
+            "No conversation history yet. Start testing conversations with your clients "
+            "in the 'Test Conversations' tab to see metrics here!"
+        )
+        return
+    
+    # Calculate and display metrics
+    metrics = calculate_conversation_metrics(conversations)
+    
+    # Display summary metrics
+    st.write("### 📈 Summary Metrics")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric(
+            "Total Conversations",
+            metrics['total_conversations']
+        )
+    
+    with col2:
+        st.metric(
+            "Total Cost",
+            format_cost(metrics['total_cost'])
+        )
+    
+    with col3:
+        st.metric(
+            "Avg Cost/Conversation",
+            format_cost(metrics['avg_cost_per_conversation'])
+        )
+    
+    with col4:
+        if metrics['avg_response_time'] is not None:
+            st.metric(
+                "Avg Response Time",
+                f"{metrics['avg_response_time']:.1f}s"
+            )
+        else:
+            st.metric(
+                "Avg Response Time",
+                "N/A"
+            )
+    
+    # Additional metrics row
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric(
+            "Total Tokens",
+            format_tokens(metrics['total_tokens'])
+        )
+    
+    with col2:
+        st.metric(
+            "Avg Tokens/Conv",
+            format_tokens(metrics['avg_tokens_per_conversation'])
+        )
+    
+    with col3:
+        st.metric(
+            "Avg Messages/Conv",
+            metrics['avg_messages_per_conversation']
+        )
+    
+    st.divider()
+    
+    # Display conversation history
+    st.write("### 💬 Conversation History")
+    
+    # Sort conversations by start time (most recent first)
+    conversations.sort(key=lambda x: x['session'].started_at, reverse=True)
+    
+    for i, conv in enumerate(conversations):
+        session = conv['session']
+        client = conv['client']
+        messages = conv.get('messages', [])
+        
+        # Create a container for each conversation
+        with st.container():
+            # Header with key info
+            col1, col2, col3, col4 = st.columns([3, 2, 1, 1])
+            
+            with col1:
+                st.write(f"**{client.name}**")
+                st.caption(f"Session: {session.id[:8]}...")
+            
+            with col2:
+                start_time = session.started_at.strftime('%Y-%m-%d %H:%M')
+                st.write(f"📅 {start_time}")
+                if session.ended_at:
+                    duration = session.ended_at - session.started_at
+                    duration_minutes = int(duration.total_seconds() // 60)
+                    st.caption(f"Duration: {duration_minutes} min")
+            
+            with col3:
+                st.write(f"💬 {len(messages)} msgs")
+                st.caption(f"{format_tokens(session.total_tokens or 0)} tokens")
+            
+            with col4:
+                st.write(format_cost(session.estimated_cost or 0.0))
+                status_emoji = "✅" if session.status == "completed" else "🔴"
+                st.caption(f"{status_emoji} {session.status}")
+            
+            # Expandable conversation view
+            with st.expander("View Conversation"):
+                for msg in messages:
+                    render_chat_message(
+                        role=msg.role,
+                        content=msg.content,
+                        tokens=msg.token_count
+                    )
+                
+                if session.session_notes:
+                    st.info(f"**Session Notes**: {session.session_notes}")
+            
+            # Export button
+            export_text = format_conversation_export(conv)
+            st.download_button(
+                label="📥 Export Conversation",
+                data=export_text,
+                file_name=f"conversation_{client.name.replace(' ', '_')}_{session.started_at.strftime('%Y%m%d_%H%M%S')}.md",
+                mime="text/markdown",
+                key=f"export_{session.id}"
+            )
+            
+            st.divider()
 
 
 def display_client_list(teacher_id: str):
@@ -453,7 +751,7 @@ def main():
                 )
     
     with tab3:
-        show_info_message("Conversation history and metrics will be implemented in Part 4!")
+        display_conversation_history(teacher.teacher_id)
 
 
 if __name__ == "__main__":

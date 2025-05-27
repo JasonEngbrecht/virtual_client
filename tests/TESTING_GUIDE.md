@@ -1,5 +1,21 @@
 # Testing Guide for Virtual Client
 
+## 🚀 MVP Testing Strategy
+
+**For MVP/Prototype Phase (Current):**
+- Focus on manual testing for Streamlit interfaces
+- Write minimal automated tests (1-2 per feature)
+- Test only critical paths: DB connection, API auth, cost calculations
+- Skip edge cases, UI tests, and comprehensive coverage
+- Document issues for later rather than fixing all edge cases
+
+**After MVP Validation:**
+- Return to comprehensive testing patterns below
+- Add edge case handling
+- Implement full test coverage
+
+---
+
 ## Table of Contents
 1. [Quick Start](#quick-start)
 2. [Test Organization](#test-organization)
@@ -411,6 +427,29 @@ def mock_add_message(db, session_id, message_data):
 - Check that backend is in Python path (handled by conftest.py)
 - Verify PyCharm is using the correct interpreter
 
+### MVP Module Import Errors
+**Problem**: `ModuleNotFoundError: No module named 'utils'` when testing MVP modules
+**Solution**:
+- MVP modules need proper sys.path setup before imports:
+```python
+# In mvp/teacher_test.py
+import sys
+from pathlib import Path
+
+# Add project root to path
+project_root = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(project_root))
+
+# Now import from mvp.utils
+from mvp.utils import (
+    setup_page_config,
+    get_database_connection,
+    # ...
+)
+```
+- Use full module paths (`mvp.utils` not just `utils`)
+- Ensure sys.path manipulation happens BEFORE other imports
+
 ### Database Not Found
 **Problem**: Tables not created or "no such table" errors
 **Solution**:
@@ -439,6 +478,31 @@ def mock_add_message(db, session_id, message_data):
 - Each test should use fresh database (handled by db_session fixture)
 - Don't rely on test execution order
 - Clean up any global state changes
+
+### Integration Tests Hanging
+**Problem**: Integration tests hang or timeout when functions create their own database connections
+**Solution**:
+- This often happens when tested functions use `get_database_connection()` internally
+- SQLite can have locking issues with multiple connections
+- Solutions:
+  1. Add timeout markers to prevent indefinite hanging:
+  ```python
+  @pytest.mark.timeout(5)  # 5 second timeout
+  def test_that_might_hang(self):
+      # test code
+  ```
+  2. Mock the database connection in the tested function
+  3. Refactor functions to accept database sessions as parameters
+  4. Use the same database session throughout the test
+- Example from teacher history tests:
+  ```python
+  # fetch_conversation_history creates its own db connection
+  # This can cause SQLite locking in tests
+  def fetch_conversation_history(teacher_id: str):
+      db = get_database_connection()  # Creates new connection
+      # ... query logic
+      db.close()
+  ```
 
 ### Async Test Issues
 **Problem**: Warnings about async fixture scope
@@ -475,6 +539,24 @@ asyncio_default_fixture_loop_scope = function
       }]
   )
   ```
+
+### Floating-Point Precision Errors
+**Problem**: Tests fail due to floating-point precision issues (e.g., `0.0006000000000000001 != 0.0006`)
+**Solution**:
+- Use `pytest.approx()` for floating-point comparisons:
+  ```python
+  # ❌ WRONG - Can fail due to precision
+  assert total_cost == 0.0006
+  
+  # ✅ CORRECT - Handles floating-point precision
+  assert total_cost == pytest.approx(0.0006)
+  
+  # With custom tolerance
+  assert value == pytest.approx(expected, rel=1e-6)  # Relative tolerance
+  assert value == pytest.approx(expected, abs=1e-6)  # Absolute tolerance
+  ```
+- Common in cost calculations, percentages, and any math operations
+- Also affects formatted output tests - consider how values are rounded
 
 ## Debugging Tests
 

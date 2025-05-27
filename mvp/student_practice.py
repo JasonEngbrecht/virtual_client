@@ -1,45 +1,199 @@
 """
-Student Practice Interface - MVP
-
-Allows students to:
-1. View available clients
-2. Start practice conversations
-3. Chat with virtual clients
-4. End sessions when complete
-
-Part of the MVP to validate the student experience.
+Student Practice Interface - Streamlit app for students to practice conversations
 """
-
 import streamlit as st
-from utils import (
+from datetime import datetime
+from typing import Optional
+import sys
+from pathlib import Path
+
+# Add project root to path
+project_root = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(project_root))
+
+from mvp.utils import (
+    get_database_connection,
+    get_mock_student,
     setup_page_config,
-    show_info_message,
-    initialize_session_state
+    show_error_message,
+    show_success_message,
+    show_info_message
 )
+from backend.services.client_service import client_service
+from backend.services.session_service import session_service
+from backend.services.conversation_service import conversation_service
+from backend.models.client_profile import ClientProfile
+from backend.models.session import Session
+
+
+def display_client_card(client: ClientProfile, active_session: Optional[Session] = None):
+    """Display a client card with information and action button"""
+    with st.container():
+        # Card styling
+        st.markdown(
+            """
+            <style>
+            .client-card {
+                border: 1px solid #ddd;
+                border-radius: 8px;
+                padding: 1rem;
+                margin-bottom: 1rem;
+                background-color: #f9f9f9;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+        
+        # Card content
+        st.markdown('<div class="client-card">', unsafe_allow_html=True)
+        
+        # Client name and basic info
+        st.markdown(f"### {client.name}")
+        st.markdown(f"**Age:** {client.age} | **Gender:** {client.gender or 'Not specified'}")
+        
+        # Issues or background story preview (truncated)
+        if client.issues:
+            issues_display = ", ".join([issue.replace("_", " ").title() for issue in client.issues[:2]])
+            if len(client.issues) > 2:
+                issues_display += f" (+{len(client.issues) - 2} more)"
+            st.markdown(f"**Issues:** {issues_display}")
+        elif client.background_story:
+            story_preview = client.background_story[:150] + "..." if len(client.background_story) > 150 else client.background_story
+            st.markdown(f"**Background:** {story_preview}")
+        
+        # Personality traits
+        if client.personality_traits:
+            traits_str = ", ".join([trait.replace("_", " ").title() for trait in client.personality_traits[:3]])
+            if len(client.personality_traits) > 3:
+                traits_str += f" (+{len(client.personality_traits) - 3} more)"
+            st.markdown(f"**Personality:** {traits_str}")
+        
+        # Action button
+        if active_session:
+            if st.button(f"Continue Conversation", key=f"continue_{client.id}"):
+                # Store session info and switch to conversation view
+                st.session_state.active_session_id = active_session.id
+                st.session_state.selected_client_id = client.id
+                st.session_state.view = "conversation"
+                st.rerun()
+        else:
+            if st.button(f"Start Conversation", key=f"start_{client.id}"):
+                # Start a new conversation
+                db = None
+                try:
+                    db = get_database_connection()
+                    student = get_mock_student()
+                    
+                    # Use conversation service to start the conversation
+                    session = conversation_service.start_conversation(
+                        db=db,
+                        student=student,
+                        client_id=client.id
+                    )
+                    
+                    # Store session info and switch to conversation view
+                    st.session_state.active_session_id = session.id
+                    st.session_state.selected_client_id = client.id
+                    st.session_state.view = "conversation"
+                    show_success_message(f"Started conversation with {client.name}")
+                    st.rerun()
+                    
+                except Exception as e:
+                    show_error_message(f"Error starting conversation: {str(e)}")
+                finally:
+                    if db:
+                        db.close()
+        
+        st.markdown('</div>', unsafe_allow_html=True)
 
 
 def main():
-    # Configure page
-    setup_page_config(
-        page_title="Student Practice - Virtual Client",
-        page_icon="🎓"
-    )
+    # Page setup
+    setup_page_config("Student Practice", "🎭")
+    
+    # Get mock student auth
+    student = get_mock_student()
+    
+    # Header
+    st.title("🎭 Practice Conversations")
+    st.markdown(f"**Student ID:** {student.student_id}")
+    st.markdown("---")
     
     # Initialize session state
-    initialize_session_state()
+    if "view" not in st.session_state:
+        st.session_state.view = "client_selection"
     
-    st.title("🎓 Student Practice Interface")
+    # Navigation based on view
+    if st.session_state.view == "conversation":
+        # This will be implemented in Part 6
+        st.info("Conversation interface will be implemented in Part 6")
+        if st.button("← Back to Client Selection"):
+            st.session_state.view = "client_selection"
+            st.rerun()
+        return
     
-    show_info_message("Student interface coming in Part 5 of implementation!")
+    # Client Selection View
+    st.header("Select a Client to Practice With")
     
-    st.write("""
-    This interface will allow students to:
-    - Browse available virtual clients
-    - Start practice conversations
-    - Chat with AI-powered clients
-    - Track session duration
-    - End sessions when ready
-    """)
+    try:
+        # Get database connection
+        db = get_database_connection()
+        
+        # Get all available clients (from all teachers for MVP)
+        # In production, this would be filtered by assignment/section
+        all_clients = []
+        
+        # For MVP, we'll get clients from teacher-1 (our mock teacher)
+        # In production, this would come from assignments
+        teacher_clients = client_service.get_teacher_clients(db, "teacher-1")
+        all_clients.extend(teacher_clients)
+        
+        if not all_clients:
+            st.info("No clients available for practice yet. Please ask your teacher to create some clients.")
+            return
+        
+        # Get active sessions for this student
+        active_sessions = session_service.get_student_sessions(
+            db, 
+            student.student_id, 
+            status="active"
+        )
+        
+        # Create a map of client_id to active session
+        active_session_map = {
+            session.client_profile_id: session 
+            for session in active_sessions
+        }
+        
+        # Display clients in a grid
+        st.markdown(f"**Available Clients:** {len(all_clients)}")
+        
+        # Create columns for grid layout
+        cols = st.columns(2)
+        
+        for idx, client in enumerate(all_clients):
+            with cols[idx % 2]:
+                active_session = active_session_map.get(client.id)
+                display_client_card(client, active_session)
+        
+        # Show summary of active conversations
+        if active_sessions:
+            st.markdown("---")
+            st.subheader(f"Active Conversations ({len(active_sessions)})")
+            for session in active_sessions:
+                # Find the client for this session
+                client = next((c for c in all_clients if c.id == session.client_profile_id), None)
+                if client:
+                    st.markdown(f"- **{client.name}** - Started {session.started_at.strftime('%Y-%m-%d %H:%M')}")
+        
+    except Exception as e:
+        show_error_message(f"Error loading clients: {str(e)}")
+        st.error("Please make sure the database is properly initialized.")
+    
+    finally:
+        if 'db' in locals():
+            db.close()
 
 
 if __name__ == "__main__":

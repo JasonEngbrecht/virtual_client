@@ -8,6 +8,12 @@ Provides common functionality for all MVP pages:
 - Shared UI helpers
 """
 
+from dotenv import load_dotenv
+import os
+
+# Load environment variables from .env file
+load_dotenv()
+
 import streamlit as st
 from sqlalchemy.orm import Session
 from sqlalchemy import text

@@ -3,6 +3,12 @@ Test runner script for Virtual Client project
 Run from project root: python run_tests.py
 """
 
+from dotenv import load_dotenv
+import os
+
+# Load environment variables from .env file
+load_dotenv()
+
 import sys
 import subprocess
 from pathlib import Path

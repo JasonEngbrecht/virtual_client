@@ -79,7 +79,11 @@ Before ending session:
 1. Commit any changes
 2. Update CURRENT_SPRINT.md with progress
 3. Note any blockers or questions
-4. **DELETE ANY TEMPORARY FILES** created during the session (cleanup_*.py, verify_*.py, check_*.py, status_*.py, etc.)
+4. **DELETE ANY TEMPORARY FILES** created during the session:
+   - cleanup_*.py, verify_*.py, check_*.py, status_*.py
+   - check_api_key.py (after verifying API key)
+   - create_mock_conversation.py (after testing)
+   - mvp/test_env.py.delete
 
 ## 📚 Key Documentation Reference:
 - **PATTERNS.md** - Established patterns (check before implementing)

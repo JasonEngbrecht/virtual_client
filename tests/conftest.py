@@ -2,6 +2,12 @@
 Pytest configuration and shared fixtures
 """
 
+from dotenv import load_dotenv
+import os
+
+# Load environment variables from .env file before anything else
+load_dotenv()
+
 import pytest
 import asyncio
 from typing import Generator
@@ -10,7 +16,6 @@ from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
 from pathlib import Path
 import tempfile
-import os
 
 # Add backend to Python path
 import sys

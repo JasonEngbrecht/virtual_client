@@ -3,6 +3,12 @@ Quick server test for Part 3
 Starts the server and opens browser to test endpoints
 """
 
+from dotenv import load_dotenv
+import os
+
+# Load environment variables from .env file
+load_dotenv()
+
 import subprocess
 import time
 import webbrowser

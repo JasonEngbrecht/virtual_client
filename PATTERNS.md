@@ -327,6 +327,40 @@ if client.created_by != teacher_id:
 
 ---
 
+## 🔧 Environment Configuration Pattern
+
+### Loading Environment Variables
+Always load `.env` file at the top of entry points:
+
+```python
+from dotenv import load_dotenv
+import os
+
+# Load environment variables from .env file
+load_dotenv()
+```
+
+**Where to add dotenv loading:**
+- Main application files (`app.py`, `start_server.py`)
+- Test configuration (`conftest.py`, `run_tests.py`)
+- Streamlit apps (`mvp/utils.py`)
+- Any standalone scripts
+
+**Key Environment Variables:**
+- `ANTHROPIC_API_KEY` - Required for AI conversations
+- `APP_ENV` - development/production
+- `DATABASE_URL` - Database connection string
+- `LLM_PROVIDER` - anthropic/openai
+- `SECRET_KEY` - Application secret key
+
+**Best Practices:**
+- Never commit `.env` files to version control
+- Provide `.env.example` with dummy values
+- Load dotenv at the very beginning of files
+- Use `os.getenv()` with defaults for optional values
+
+---
+
 ## 🏗️ Service Architecture
 
 ### Base Service Pattern
@@ -2330,6 +2364,224 @@ def test_create_client_full_flow(db_session, teacher):
 - Check error message display
 
 **Recommendation**: Focus on integration tests for Streamlit apps - they provide better coverage than attempting to mock Streamlit components.
+
+### Streamlit Conversation Interface Pattern
+Implement real-time chat interface with session state management:
+
+```python
+def manage_conversation_state():
+    """Initialize conversation-specific session state"""
+    if 'conversation_active' not in st.session_state:
+        st.session_state.conversation_active = False
+    if 'current_session_id' not in st.session_state:
+        st.session_state.current_session_id = None
+    if 'conversation_messages' not in st.session_state:
+        st.session_state.conversation_messages = []
+    if 'conversation_cost' not in st.session_state:
+        st.session_state.conversation_cost = 0.0
+    if 'conversation_tokens' not in st.session_state:
+        st.session_state.conversation_tokens = 0
+
+# Start conversation
+if st.button("🚀 Start Test Conversation", type="primary"):
+    try:
+        db = get_database_connection()
+        session = conversation_service.start_conversation(
+            db=db,
+            student=mock_student,
+            client_id=st.session_state.selected_client_id
+        )
+        
+        # Update session state
+        st.session_state.conversation_active = True
+        st.session_state.current_session_id = session.id
+        
+        # Get initial greeting from messages
+        messages = session_service.get_messages(db, session.id)
+        if messages:
+            for msg in messages:
+                st.session_state.conversation_messages.append({
+                    'role': msg.role,
+                    'content': msg.content,
+                    'tokens': msg.token_count
+                })
+        
+        st.rerun()
+    finally:
+        db.close()
+
+# Display messages
+for msg in st.session_state.conversation_messages:
+    render_chat_message(
+        role=msg['role'],
+        content=msg['content'],
+        tokens=msg.get('tokens')
+    )
+
+# Message input with form to handle submission
+with st.form("message_form", clear_on_submit=True):
+    user_input = st.text_area("Your message:", height=100)
+    send_button = st.form_submit_button("Send", type="primary")
+    
+    if send_button and user_input:
+        # Process message...
+        st.rerun()  # Refresh to show new message
+```
+
+**Key Points**:
+- Use session state for conversation persistence
+- Always use try/finally for database connections
+- Use st.rerun() to refresh UI after state changes
+- Forms with clear_on_submit for input handling
+- Store messages in session state for display
+
+### Environment-Aware Error Messages Pattern
+Provide helpful context-specific error messages:
+
+```python
+def handle_conversation_error(e: Exception) -> None:
+    """Show user-friendly error messages based on error type"""
+    error_msg = str(e)
+    
+    if "ANTHROPIC_API_KEY" in error_msg:
+        show_error_message(
+            "Anthropic API key not configured. Please set the ANTHROPIC_API_KEY "
+            "environment variable to enable conversations."
+        )
+    elif "invalid x-api-key" in error_msg:
+        show_error_message(
+            "Invalid API key. Please check your ANTHROPIC_API_KEY configuration."
+        )
+    elif "rate limit" in error_msg.lower():
+        show_error_message(
+            "Rate limit exceeded. Please wait a moment and try again."
+        )
+    elif "connection" in error_msg.lower():
+        show_error_message(
+            "Unable to connect to the AI service. Please check your internet connection."
+        )
+    else:
+        show_error_message(f"An error occurred: {error_msg}")
+```
+
+### Session Metrics Display Pattern
+Display real-time conversation metrics:
+
+```python
+def display_conversation_metrics():
+    """Show conversation statistics in columns"""
+    col1, col2, col3 = st.columns([2, 2, 1])
+    
+    with col1:
+        if st.session_state.conversation_active:
+            st.write(f"**Session ID:** {st.session_state.current_session_id[:8]}...")
+        else:
+            st.write("**Status:** No active conversation")
+    
+    with col2:
+        # Additional status info
+        pass
+    
+    with col3:
+        if st.session_state.conversation_active:
+            st.metric("Total Tokens", format_tokens(st.session_state.conversation_tokens))
+            st.metric("Est. Cost", format_cost(st.session_state.conversation_cost))
+```
+
+### Test Skip Pattern for API Dependencies
+Skip tests gracefully when external dependencies are unavailable:
+
+```python
+import os
+import pytest
+
+# Check for API key availability
+HAS_ANTHROPIC_API_KEY = bool(os.getenv("ANTHROPIC_API_KEY"))
+
+@pytest.mark.skipif(not HAS_ANTHROPIC_API_KEY, reason="Anthropic API key not configured")
+class TestConversationIntegration:
+    """Tests requiring Anthropic API"""
+    def test_start_conversation(self, db_session, student, test_client):
+        # Test with real API
+        pass
+
+# Alternative: Test specific error handling
+@pytest.mark.skipif(HAS_ANTHROPIC_API_KEY, reason="Skip error tests when API key is available")
+def test_conversation_error_handling_no_api_key(db_session, student, test_client):
+    """Test graceful handling when no API key"""
+    with pytest.raises(RuntimeError, match="Failed to generate AI greeting"):
+        conversation_service.start_conversation(db=db_session, student=student, client_id=test_client.id)
+
+# Always run: Test UI logic without API
+class TestConversationUILogic:
+    """Test UI logic without requiring API"""
+    def test_session_state_management(self):
+        # Test state transitions
+        pass
+```
+
+### Service Import Correction Pattern
+When services use direct attribute access instead of methods:
+
+```python
+# If seeing AttributeError: 'ConversationService' object has no attribute 'session_service'
+# The service is accessing session_service directly, not as a method
+
+# In conversation_service.py:
+from backend.services.session_service import session_service  # Import the instance
+
+class ConversationService:
+    def send_message(self, ...):
+        # Direct access to imported service instance
+        messages = session_service.get_messages(db, session_id)
+        # NOT: self.session_service.get_messages()
+
+# In tests, mock the imported instance:
+from backend.services import session_service as session_service_module
+monkeypatch.setattr(session_service_module, "get_messages", mock_get_messages)
+```
+
+### Conversation Flow Error Handling Pattern
+Handle errors at each step of complex flows:
+
+```python
+def start_conversation_with_greeting(db, student, client_id):
+    try:
+        # Step 1: Validate client exists
+        client = client_service.get(db, client_id)
+        if not client:
+            raise ValueError(f"Client with ID {client_id} not found")
+        
+        # Step 2: Create session
+        session = session_service.create_session(...)
+        
+        # Step 3: Generate AI greeting
+        try:
+            greeting = anthropic.generate_response(...)
+        except Exception as e:
+            # Clean up session if AI fails
+            session_service.delete(db, session.id)
+            raise RuntimeError(f"Failed to generate AI greeting: {str(e)}")
+        
+        # Step 4: Store greeting
+        session_service.add_message(...)
+        
+        return session
+        
+    except ValueError as e:
+        # Domain errors - pass through
+        raise
+    except Exception as e:
+        # Unexpected errors - wrap with context
+        raise RuntimeError(f"Failed to start conversation: {str(e)}")
+```
+
+**Key Points**:
+- Validate prerequisites before creating resources
+- Clean up partially created resources on failure
+- Distinguish between expected errors (ValueError) and unexpected ones
+- Provide context in error messages
+- Use specific error types for different failure modes
 
 ---
 

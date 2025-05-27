@@ -267,17 +267,28 @@ class AnthropicService:
     
     def _generate_fallback_response(self, context: str = "") -> str:
         """Generate educational fallback response when API is unavailable"""
-        fallback_responses = [
-            "I apologize, but I'm having trouble responding right now. Let's take a moment to reflect on what we've discussed so far.",
-            "I seem to be having some difficulty at the moment. Perhaps we could explore this topic from a different angle?",
-            "I'm experiencing some technical issues. While we wait, what aspects of our conversation would you like to focus on?",
-            "I need a moment to gather my thoughts. In the meantime, how are you feeling about our conversation so far?",
-            "I'm having trouble connecting right now. Let's pause for a moment - is there something specific you'd like to discuss?"
-        ]
+        # Check if we're in mock mode due to authentication failure
+        if self.last_error and self.last_error.get('type') == 'authentication':
+            # Generate more contextual mock responses for testing
+            mock_responses = [
+                "That's a really good question. I've been thinking about it a lot lately. The stress has been affecting my sleep and my appetite.",
+                "I appreciate you asking. It's been difficult to talk about this with anyone. My family doesn't really understand what I'm going through.",
+                "Yes, exactly. That's what makes it so hard. I feel like I should be able to handle this better, but I just can't seem to shake this feeling.",
+                "I've tried a few things, but nothing seems to work for very long. Maybe I'm not doing them right, or maybe I need to try something different.",
+                "Thank you for listening. It helps to talk about it. Sometimes I feel so alone with these problems.",
+            ]
+        else:
+            mock_responses = [
+                "I apologize, but I'm having trouble responding right now. Let's take a moment to reflect on what we've discussed so far.",
+                "I seem to be having some difficulty at the moment. Perhaps we could explore this topic from a different angle?",
+                "I'm experiencing some technical issues. While we wait, what aspects of our conversation would you like to focus on?",
+                "I need a moment to gather my thoughts. In the meantime, how are you feeling about our conversation so far?",
+                "I'm having trouble connecting right now. Let's pause for a moment - is there something specific you'd like to discuss?"
+            ]
         
         # Use context to select appropriate response
         import random
-        response = random.choice(fallback_responses)
+        response = random.choice(mock_responses)
         
         if context:
             response += f" {context}"

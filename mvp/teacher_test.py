@@ -19,7 +19,11 @@ from utils import (
     show_success_message,
     initialize_session_state,
     get_database_connection,
-    get_mock_teacher
+    get_mock_teacher,
+    get_mock_student,
+    render_chat_message,
+    format_tokens,
+    format_cost
 )
 
 # Import backend models and services
@@ -36,6 +40,8 @@ from backend.models.client_profile import (
     COMMUNICATION_STYLES
 )
 from backend.services.client_service import client_service
+from backend.services.conversation_service import conversation_service
+from backend.models.auth import StudentAuth
 
 
 def create_client_form():
@@ -246,10 +252,205 @@ def main():
         display_client_list(teacher.teacher_id)
     
     with tab2:
-        show_info_message("Conversation testing will be implemented in Part 3!")
-        
-        if hasattr(st.session_state, 'selected_client_name'):
-            st.write(f"**Selected Client:** {st.session_state.selected_client_name}")
+        # Conversation testing interface
+        if not hasattr(st.session_state, 'selected_client_id'):
+            show_info_message("Please select a client from the 'Create Client' tab first.")
+        else:
+            # Display selected client info
+            st.subheader(f"💬 Test Conversation with {st.session_state.selected_client_name}")
+            
+            # Initialize conversation-specific session state
+            if 'conversation_active' not in st.session_state:
+                st.session_state.conversation_active = False
+            if 'current_session_id' not in st.session_state:
+                st.session_state.current_session_id = None
+            if 'conversation_messages' not in st.session_state:
+                st.session_state.conversation_messages = []
+            if 'conversation_cost' not in st.session_state:
+                st.session_state.conversation_cost = 0.0
+            if 'conversation_tokens' not in st.session_state:
+                st.session_state.conversation_tokens = 0
+            
+            # Conversation controls
+            col1, col2, col3 = st.columns([2, 2, 1])
+            
+            with col1:
+                if not st.session_state.conversation_active:
+                    if st.button("🚀 Start Test Conversation", type="primary", use_container_width=True):
+                        try:
+                            # Use mock student for teacher testing
+                            mock_student = get_mock_student()
+                            
+                            # Start the conversation
+                            db = get_database_connection()
+                            session = conversation_service.start_conversation(
+                                db=db,
+                                student=mock_student,
+                                client_id=st.session_state.selected_client_id
+                            )
+                            
+                            # Update session state
+                            st.session_state.conversation_active = True
+                            st.session_state.current_session_id = session.id
+                            st.session_state.conversation_messages = []
+                            st.session_state.conversation_cost = session.estimated_cost or 0.0
+                            st.session_state.conversation_tokens = session.total_tokens or 0
+                            
+                            # Get initial greeting from messages
+                            from backend.services.session_service import session_service
+                            messages = session_service.get_messages(
+                                db=db,
+                                session_id=session.id
+                            )
+                            
+                            if messages:
+                                for msg in messages:
+                                    st.session_state.conversation_messages.append({
+                                        'role': msg.role,
+                                        'content': msg.content,
+                                        'tokens': msg.token_count
+                                    })
+                            
+                            show_success_message("Conversation started! The client has greeted you.")
+                            st.rerun()
+                            
+                        except Exception as e:
+                            error_msg = str(e)
+                            if "ANTHROPIC_API_KEY" in error_msg:
+                                show_error_message(
+                                    "Anthropic API key not configured. Please set the ANTHROPIC_API_KEY "
+                                    "environment variable to enable conversations."
+                                )
+                            else:
+                                show_error_message(f"Failed to start conversation: {error_msg}")
+                        finally:
+                            db.close()
+                else:
+                    if st.button("🛑 End Conversation", type="secondary", use_container_width=True):
+                        try:
+                            # End the conversation
+                            db = get_database_connection()
+                            mock_student = get_mock_student()
+                            
+                            ended_session = conversation_service.end_conversation(
+                                db=db,
+                                session_id=st.session_state.current_session_id,
+                                user=mock_student,
+                                session_notes="Teacher test conversation"
+                            )
+                            
+                            # Reset session state
+                            st.session_state.conversation_active = False
+                            st.session_state.current_session_id = None
+                            
+                            show_success_message(f"Conversation ended. Total cost: {format_cost(ended_session.estimated_cost or 0)}")
+                            st.rerun()
+                            
+                        except Exception as e:
+                            show_error_message(f"Failed to end conversation: {str(e)}")
+                        finally:
+                            db.close()
+            
+            with col2:
+                if st.session_state.conversation_active:
+                    st.write(f"**Session ID:** {st.session_state.current_session_id[:8]}...")
+                else:
+                    st.write("**Status:** No active conversation")
+            
+            with col3:
+                # Display metrics
+                if st.session_state.conversation_active:
+                    st.metric("Total Tokens", format_tokens(st.session_state.conversation_tokens))
+                    st.metric("Est. Cost", format_cost(st.session_state.conversation_cost))
+            
+            st.divider()
+            
+            # Conversation interface
+            if st.session_state.conversation_active:
+                # Display conversation history
+                st.write("### Conversation History")
+                
+                # Create a container for messages
+                message_container = st.container()
+                
+                with message_container:
+                    for msg in st.session_state.conversation_messages:
+                        render_chat_message(
+                            role=msg['role'],
+                            content=msg['content'],
+                            tokens=msg.get('tokens')
+                        )
+                
+                # Message input
+                with st.form("message_form", clear_on_submit=True):
+                    user_input = st.text_area(
+                        "Your message:",
+                        placeholder="Type your message here...",
+                        height=100,
+                        key="message_input"
+                    )
+                    
+                    col1, col2 = st.columns([6, 1])
+                    with col2:
+                        send_button = st.form_submit_button("Send", type="primary", use_container_width=True)
+                    
+                    if send_button and user_input:
+                        try:
+                            # Send the message
+                            db = get_database_connection()
+                            mock_student = get_mock_student()
+                            
+                            # Add user message to UI immediately
+                            st.session_state.conversation_messages.append({
+                                'role': 'user',
+                                'content': user_input,
+                                'tokens': None  # Will be calculated by service
+                            })
+                            
+                            # Get AI response
+                            with st.spinner("Client is thinking..."):
+                                ai_message = conversation_service.send_message(
+                                    db=db,
+                                    session_id=st.session_state.current_session_id,
+                                    content=user_input,
+                                    user=mock_student
+                                )
+                            
+                            # Add AI response to conversation
+                            st.session_state.conversation_messages.append({
+                                'role': ai_message.role,
+                                'content': ai_message.content,
+                                'tokens': ai_message.token_count
+                            })
+                            
+                            # Update metrics
+                            from backend.services.session_service import session_service
+                            session_db = session_service.get_session(
+                                db=db,
+                                session_id=st.session_state.current_session_id
+                            )
+                            st.session_state.conversation_cost = session_db.estimated_cost or 0.0
+                            st.session_state.conversation_tokens = session_db.total_tokens or 0
+                            
+                            st.rerun()
+                            
+                        except Exception as e:
+                            error_msg = str(e)
+                            if "ANTHROPIC_API_KEY" in error_msg:
+                                show_error_message(
+                                    "Anthropic API key not configured. Cannot send messages without API access."
+                                )
+                            else:
+                                show_error_message(f"Failed to send message: {error_msg}")
+                        finally:
+                            db.close()
+            
+            else:
+                # Show instructions when no conversation is active
+                st.info(
+                    "Start a test conversation to interact with the virtual client. "
+                    "The client will respond based on their profile and personality traits."
+                )
     
     with tab3:
         show_info_message("Conversation history and metrics will be implemented in Part 4!")

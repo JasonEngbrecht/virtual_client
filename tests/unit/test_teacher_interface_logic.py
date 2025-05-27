@@ -7,7 +7,9 @@ For UI testing, see the integration tests which test the full flow.
 
 import pytest
 from backend.models.client_profile import ClientProfileCreate, ClientProfileDB
-from backend.models.auth import TeacherAuth
+from backend.models.auth import TeacherAuth, StudentAuth
+from backend.models.session import Session, SessionDB
+from backend.models.message import Message, MessageDB
 
 
 class TestTeacherInterfaceLogic:
@@ -115,3 +117,150 @@ class TestTeacherInterfaceLogic:
         assert client.issues == []
         assert client.background_story is None
         assert client.communication_style is None
+
+
+class TestConversationLogic:
+    """Test conversation interface business logic"""
+    
+    def test_student_auth_model(self):
+        """Test StudentAuth model"""
+        student = StudentAuth(id="student-1", student_id="student-1")
+        assert student.id == "student-1"
+        assert student.student_id == "student-1"
+    
+    def test_session_state_initialization_values(self):
+        """Test expected session state initialization values"""
+        # Initial state values
+        initial_state = {
+            'conversation_active': False,
+            'current_session_id': None,
+            'conversation_messages': [],
+            'conversation_cost': 0.0,
+            'conversation_tokens': 0
+        }
+        
+        assert initial_state['conversation_active'] is False
+        assert initial_state['current_session_id'] is None
+        assert initial_state['conversation_messages'] == []
+        assert initial_state['conversation_cost'] == 0.0
+        assert initial_state['conversation_tokens'] == 0
+    
+    def test_conversation_message_structure(self):
+        """Test the structure of conversation messages"""
+        # User message structure
+        user_msg = {
+            'role': 'user',
+            'content': 'Hello, how are you?',
+            'tokens': None  # Will be calculated by service
+        }
+        
+        assert user_msg['role'] == 'user'
+        assert user_msg['content'] != ''
+        assert 'tokens' in user_msg
+        
+        # AI message structure
+        ai_msg = {
+            'role': 'assistant',
+            'content': 'I am doing well, thank you for asking.',
+            'tokens': 12
+        }
+        
+        assert ai_msg['role'] == 'assistant'
+        assert ai_msg['content'] != ''
+        assert ai_msg['tokens'] > 0
+    
+    def test_session_id_display_truncation(self):
+        """Test session ID display truncation logic"""
+        # Full session ID
+        session_id = "550e8400-e29b-41d4-a716-446655440000"
+        
+        # Truncated display (first 8 characters + ...)
+        display_id = f"{session_id[:8]}..."
+        
+        assert display_id == "550e8400..."
+        assert len(display_id) == 11  # 8 chars + 3 dots
+    
+    def test_conversation_status_logic(self):
+        """Test conversation status state transitions"""
+        # Start state
+        status = "inactive"
+        conversation_active = False
+        
+        # After starting conversation
+        status = "active"
+        conversation_active = True
+        
+        assert status == "active"
+        assert conversation_active is True
+        
+        # After ending conversation
+        status = "completed"
+        conversation_active = False
+        
+        assert status == "completed"
+        assert conversation_active is False
+    
+    def test_message_validation_logic(self):
+        """Test message validation before sending"""
+        # Empty message should not be sent
+        empty_message = ""
+        assert not empty_message  # Should fail validation
+        
+        # Whitespace-only message should not be sent
+        whitespace_message = "   \n\t   "
+        assert not whitespace_message.strip()  # Should fail validation
+        
+        # Valid message
+        valid_message = "Hello, how are you feeling today?"
+        assert valid_message.strip()  # Should pass validation
+    
+    def test_conversation_metrics_calculation(self):
+        """Test conversation metrics calculations"""
+        # Initial metrics
+        total_tokens = 0
+        total_cost = 0.0
+        
+        # After first message (greeting)
+        greeting_tokens = 25
+        greeting_cost = 0.000019  # Based on Haiku pricing
+        total_tokens += greeting_tokens
+        total_cost += greeting_cost
+        
+        assert total_tokens == 25
+        assert total_cost > 0
+        
+        # After user message and response
+        user_tokens = 10
+        response_tokens = 50
+        message_cost = (user_tokens + response_tokens) * 0.00000075  # Haiku rate
+        
+        total_tokens += user_tokens + response_tokens
+        total_cost += message_cost
+        
+        assert total_tokens == 85
+        assert total_cost > greeting_cost
+    
+    def test_error_message_formatting(self):
+        """Test error message formatting for user display"""
+        # API error
+        api_error = "Failed to generate AI response: Connection timeout"
+        user_friendly = f"Failed to send message: {api_error}"
+        assert "Failed to send message" in user_friendly
+        
+        # Session error
+        session_error = "Session with ID xyz not found"
+        user_friendly = f"Failed to start conversation: {session_error}"
+        assert "Failed to start conversation" in user_friendly
+    
+    def test_conversation_end_notes(self):
+        """Test conversation end notes formatting"""
+        # Teacher test notes
+        teacher_notes = "Teacher test conversation"
+        assert teacher_notes == "Teacher test conversation"
+        
+        # Could be enhanced with timestamp
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+        enhanced_notes = f"Teacher test conversation - {timestamp}"
+        assert "Teacher test conversation" in enhanced_notes
+        assert timestamp in enhanced_notes

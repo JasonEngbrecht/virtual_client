@@ -1430,6 +1430,167 @@ def check_cost_alerts(session: SessionDB):
         # Could send email, Slack notification, etc.
 ```
 
+### Rate Limiting Patterns
+
+#### Sliding Window Rate Limiter
+```python
+# backend/utils/rate_limiter.py
+import time
+from collections import defaultdict, deque
+from typing import Dict, Optional, Tuple
+
+class RateLimiter:
+    """Sliding window rate limiter with per-user and global limits"""
+    
+    def __init__(
+        self,
+        user_limit: int = 10,    # 10 requests per minute per user
+        user_window: int = 60,   # 1 minute
+        global_limit: int = 1000,  # 1000 requests per hour
+        global_window: int = 3600  # 1 hour
+    ):
+        self.user_limit = user_limit
+        self.user_window = user_window
+        self.global_limit = global_limit
+        self.global_window = global_window
+        
+        # In-memory storage (replace with Redis for production)
+        self._user_requests: Dict[str, deque] = defaultdict(deque)
+        self._global_requests: deque = deque()
+        
+    def check_limit(self, user_id: Optional[str] = None) -> Tuple[bool, Optional[int]]:
+        """Check if request is within limits. Returns (allowed, retry_after_seconds)"""
+        current_time = time.time()
+        
+        # Check global limit
+        global_allowed, global_retry = self._check_global_limit(current_time)
+        if not global_allowed:
+            return False, global_retry
+        
+        # Check user limit if user_id provided
+        if user_id:
+            user_allowed, user_retry = self._check_user_limit(user_id, current_time)
+            if not user_allowed:
+                return False, user_retry
+        
+        # Record the request
+        self._record_request(user_id, current_time)
+        return True, None
+```
+
+#### Rate Limit Decorators
+```python
+# Flexible decorator with configurable limits
+def rate_limit(
+    limiter: Optional[RateLimiter] = None,
+    get_user_id: Optional[Callable] = None,
+    raise_on_limit: bool = True
+):
+    """Decorator for rate limiting functions"""
+    if limiter is None:
+        limiter = default_rate_limiter
+    
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            user_id = None
+            if get_user_id:
+                try:
+                    user_id = get_user_id(*args, **kwargs)
+                except:
+                    pass  # Continue without user-specific limit
+            
+            allowed, retry_after = limiter.check_limit(user_id)
+            if not allowed:
+                if raise_on_limit:
+                    raise RateLimitExceeded(
+                        f"Rate limit exceeded. Try again in {retry_after} seconds.",
+                        retry_after
+                    )
+                return None
+            
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
+
+# Convenience decorators
+@rate_limit_user  # Expects 'user_id' in kwargs
+@rate_limit_student  # Expects 'student_id' in kwargs
+```
+
+#### Using Rate Limiting
+```python
+# Manual checking
+from backend.utils import default_rate_limiter
+
+allowed, retry_after = default_rate_limiter.check_limit("user-123")
+if not allowed:
+    raise HTTPException(
+        status_code=429,
+        detail=f"Rate limit exceeded. Try again in {retry_after} seconds.",
+        headers={"Retry-After": str(retry_after)}
+    )
+
+# With decorators
+@rate_limit(get_user_id=lambda *args, **kwargs: kwargs.get('user').student_id)
+def send_message(db, session_id: str, content: str, user: StudentAuth):
+    # Function implementation
+    pass
+
+# For API endpoints
+@router.post("/messages")
+@rate_limit_student
+async def create_message(
+    message: MessageCreate,
+    student_id: str = Depends(get_current_student),
+    db: Session = Depends(get_db)
+):
+    # Endpoint implementation
+    pass
+```
+
+#### Environment Variable Configuration
+```python
+# Configure via environment variables
+DEFAULT_USER_LIMIT = int(os.getenv("RATE_LIMIT_USER_PER_MINUTE", "10"))
+DEFAULT_GLOBAL_LIMIT = int(os.getenv("RATE_LIMIT_GLOBAL_PER_HOUR", "1000"))
+
+# Usage statistics
+usage = limiter.get_user_usage("user-123")
+print(f"Requests: {usage['requests_in_window']}/{usage['limit']}")
+print(f"Remaining: {usage['remaining']}")
+```
+
+#### Testing Rate Limits
+```python
+# Mock time for testing
+@patch('time.time')
+def test_sliding_window(mock_time):
+    mock_time.return_value = 1000.0  # Set initial time BEFORE creating limiter
+    limiter = RateLimiter(user_limit=2, user_window=60)
+    
+    # Make requests
+    assert limiter.check_limit("user1")[0] is True
+    assert limiter.check_limit("user1")[0] is True
+    assert limiter.check_limit("user1")[0] is False  # 3rd request blocked
+    
+    # Move time forward
+    mock_time.return_value = 1061.0  # 61 seconds later
+    assert limiter.check_limit("user1")[0] is True  # Old requests expired
+
+# Extract user_id from positional args
+get_user_id=lambda *args, **kwargs: args[1].student_id if len(args) > 1 else None
+```
+
+**Key Features**:
+- Sliding window algorithm for accurate rate limiting
+- Per-user and global limits with different time windows
+- Automatic cleanup of old requests
+- Retry-after calculation for proper HTTP headers
+- Easy migration path to Redis (just replace storage backend)
+- Decorators for clean integration
+- Usage statistics and monitoring
+
 ### Message Storage for Scale
 
 #### Proper Table Design

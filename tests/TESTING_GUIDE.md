@@ -304,6 +304,58 @@ mock_session_db = Mock(
 Session.model_validate(mock_session_db)  # Won't raise ValidationError
 ```
 
+### 7. Mocking SQLAlchemy db.refresh()
+When testing with Mock objects that might be passed to `db.refresh()`:
+
+```python
+# SQLAlchemy's refresh() introspects objects, which fails on Mock
+# Solution: Mock db.refresh to handle Mock objects gracefully
+
+def mock_refresh(obj):
+    # Do nothing for mock objects
+    if isinstance(obj, Mock):
+        return
+    # Call original for real objects
+    return original_refresh(obj)
+
+monkeypatch.setattr(db_session, "refresh", mock_refresh)
+```
+
+### 8. Lambda Function User ID Extraction
+When using decorators that extract user IDs from function arguments:
+
+```python
+# ❌ WRONG - Assumes keyword argument
+get_user_id=lambda *args, **kwargs: kwargs.get('student').student_id
+
+# ✅ CORRECT - Handle positional arguments
+get_user_id=lambda *args, **kwargs: args[1].student_id if len(args) > 1 else None
+
+# For functions with signature: func(db, student, ...)
+# args[0] = db
+# args[1] = student (what we want)
+```
+
+### 9. Mock Message Sequence Numbers
+When mocking messages that need sequence numbers:
+
+```python
+# Track sequence numbers per session
+message_sequences = {}
+
+def mock_add_message(db, session_id, message_data):
+    if session_id not in message_sequences:
+        message_sequences[session_id] = 0
+    message_sequences[session_id] += 1
+    
+    return Mock(
+        id=f"msg-{message_sequences[session_id]}",
+        session_id=session_id,
+        sequence_number=message_sequences[session_id],  # Integer, not Mock
+        # ... other fields
+    )
+```
+
 ## Common Issues
 
 ### Import Errors

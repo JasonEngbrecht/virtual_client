@@ -76,6 +76,12 @@ from .message import (
     Message
 )
 
+from .auth import (
+    BaseUser,
+    StudentAuth,
+    TeacherAuth
+)
+
 # Export all models for easy access
 __all__ = [
     # Client Profile
@@ -143,4 +149,9 @@ __all__ = [
     'MessageBase',
     'MessageCreate',
     'Message',
+    
+    # Auth
+    'BaseUser',
+    'StudentAuth',
+    'TeacherAuth',
 ]

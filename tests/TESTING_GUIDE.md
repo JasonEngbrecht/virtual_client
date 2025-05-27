@@ -336,7 +336,53 @@ get_user_id=lambda *args, **kwargs: args[1].student_id if len(args) > 1 else Non
 # args[1] = student (what we want)
 ```
 
-### 9. Mock Message Sequence Numbers
+### 9. Mocking Anthropic Exceptions
+Anthropic SDK exceptions require specific parameters. Use helper functions:
+
+```python
+import httpx
+
+# Helper functions for creating Anthropic exceptions
+def create_api_connection_error():
+    """Create an APIConnectionError for testing"""
+    return anthropic.APIConnectionError(
+        request=httpx.Request("POST", "https://api.anthropic.com")
+    )
+
+def create_authentication_error(message="Invalid API key"):
+    """Create an AuthenticationError for testing"""
+    response = httpx.Response(
+        401,
+        json={"error": {"message": message, "type": "authentication_error"}},
+        request=httpx.Request("POST", "https://api.anthropic.com")
+    )
+    return anthropic.AuthenticationError(
+        response=response, 
+        body={"error": {"message": message}}
+    )
+
+# Usage in tests
+mock_client.messages.create.side_effect = create_authentication_error()
+```
+
+**Note**: The `httpx` library is required for creating these exceptions properly.
+
+### 10. Testing Error Categorization
+When testing error handling, use class name checking for compatibility:
+
+```python
+def _categorize_error(self, error: Exception) -> ErrorType:
+    """Categorize by class name for better compatibility"""
+    error_class_name = error.__class__.__name__
+    
+    if "AuthenticationError" in error_class_name:
+        return ErrorType.AUTHENTICATION
+    # ... more checks
+```
+
+This approach is more robust than `isinstance()` checks when dealing with mocked exceptions.
+
+### 11. Mock Message Sequence Numbers
 When mocking messages that need sequence numbers:
 
 ```python

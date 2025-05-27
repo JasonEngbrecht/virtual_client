@@ -621,6 +621,255 @@ def test_connection(self) -> Dict[str, Any]:
         return {"status": "error", "error_type": "unknown", "error": str(e)}
 ```
 
+### Circuit Breaker Pattern
+Prevent cascading failures when external services are down:
+```python
+class CircuitBreaker:
+    def __init__(self, config: CircuitBreakerConfig):
+        self.config = config
+        self.failure_count = 0
+        self.last_failure_time = None
+        self.state = "closed"  # closed, open, half_open
+        
+    def can_execute(self) -> Tuple[bool, Optional[str]]:
+        if self.state == "closed":
+            return True, None
+            
+        if self.state == "open":
+            if time.time() - self.last_failure_time >= self.config.recovery_timeout:
+                self.state = "half_open"
+                return True, None
+            return False, f"Service unavailable. Try again in {seconds} seconds."
+            
+        return True, None  # half_open
+        
+    def record_success(self):
+        if self.state == "half_open":
+            # Transition to closed after enough successes
+            self.state = "closed"
+        self.failure_count = 0
+        
+    def record_failure(self):
+        self.failure_count += 1
+        self.last_failure_time = time.time()
+        if self.failure_count >= self.config.failure_threshold:
+            self.state = "open"
+```
+
+**Configuration**:
+- `ANTHROPIC_FAILURE_THRESHOLD` - Failures before opening (default: 5)
+- `ANTHROPIC_RECOVERY_TIMEOUT` - Seconds before retry (default: 300)
+- `ANTHROPIC_HALF_OPEN_REQUESTS` - Test requests in recovery (default: 3)
+
+### Cost Tracking Pattern
+Track API usage costs with configurable alerts:
+```python
+class AnthropicService:
+    def __init__(self):
+        self.cost_alert = CostAlert(
+            warning_threshold=float(os.getenv("ANTHROPIC_COST_WARNING", "0.10")),
+            critical_threshold=float(os.getenv("ANTHROPIC_COST_CRITICAL", "0.50")),
+            daily_limit=float(os.getenv("ANTHROPIC_DAILY_LIMIT", "10.00"))
+        )
+        self.session_costs: Dict[str, float] = {}
+        self.daily_cost = 0.0
+        
+    def _track_cost(self, session_id: Optional[str], tokens: int, is_input: bool):
+        # Calculate cost based on model and token type
+        cost = calculate_cost(tokens, self.model, "input" if is_input else "output")
+        
+        # Update tracking
+        self.daily_cost += cost
+        if session_id:
+            self.session_costs[session_id] = self.session_costs.get(session_id, 0.0) + cost
+        
+        # Check alerts
+        if session_id and self.session_costs[session_id] >= self.cost_alert.critical_threshold:
+            logger.critical(f"Session {session_id} exceeds critical cost threshold")
+        
+        if self.daily_cost >= self.cost_alert.daily_limit:
+            self.status = ServiceStatus.UNAVAILABLE
+```
+
+### Error Categorization Pattern
+Convert technical errors to user-friendly messages:
+```python
+def _categorize_error(self, error: Exception) -> ErrorType:
+    """Categorize by class name for compatibility"""
+    error_class_name = error.__class__.__name__
+    
+    if "AuthenticationError" in error_class_name:
+        return ErrorType.AUTHENTICATION
+    elif "RateLimitError" in error_class_name:
+        return ErrorType.RATE_LIMIT
+    elif "APIConnectionError" in error_class_name:
+        return ErrorType.CONNECTION
+    # ... more mappings
+    
+def _get_user_friendly_error(self, error_type: ErrorType) -> str:
+    messages = {
+        ErrorType.AUTHENTICATION: "Authentication failed. Please check your credentials.",
+        ErrorType.RATE_LIMIT: "Too many requests. Please wait a moment and try again.",
+        ErrorType.CONNECTION: "Unable to connect to the AI service.",
+        # ... more messages
+    }
+    return messages.get(error_type, "An unexpected error occurred.")
+```
+
+### Fallback Response Pattern
+Provide educational responses when API is unavailable:
+```python
+def _generate_fallback_response(self, context: str = "") -> str:
+    """Generate educational fallback when API unavailable"""
+    fallback_responses = [
+        "I apologize, but I'm having trouble responding right now. Let's take a moment to reflect on what we've discussed so far.",
+        "I seem to be having some difficulty at the moment. Perhaps we could explore this topic from a different angle?",
+        # ... more responses
+    ]
+    
+    response = random.choice(fallback_responses)
+    if context:
+        response += f" {context}"
+    return response
+```
+
+### Service Health Monitoring Pattern
+Track and report service health status:
+```python
+def get_service_status(self) -> Dict[str, Any]:
+    return {
+        "status": self.status.value,  # healthy/degraded/unavailable
+        "circuit_breaker_state": self.circuit_breaker.state,
+        "daily_cost": round(self.daily_cost, 4),
+        "daily_limit": self.cost_alert.daily_limit,
+        "model": self.model,
+        "environment": self.environment,
+        "last_error": self.last_error
+    }
+```
+
+### Comprehensive Error Handling with Circuit Breaker
+Implement robust error handling with circuit breaker pattern:
+```python
+class CircuitBreaker:
+    def __init__(self, failure_threshold=5, recovery_timeout=300):
+        self.failure_threshold = failure_threshold
+        self.recovery_timeout = recovery_timeout
+        self.failure_count = 0
+        self.last_failure_time = None
+        self.state = "closed"  # closed, open, half_open
+        
+    def can_execute(self) -> Tuple[bool, Optional[str]]:
+        if self.state == "closed":
+            return True, None
+        if self.state == "open":
+            if time.time() - self.last_failure_time >= self.recovery_timeout:
+                self.state = "half_open"
+                return True, None
+            return False, f"Service unavailable. Try again in {seconds} seconds."
+        return True, None  # half_open
+
+# Use in service
+if not self.circuit_breaker.can_execute()[0]:
+    return self._generate_fallback_response()
+```
+
+### Cost Tracking and Alerts Pattern
+Track API costs with configurable alerts:
+```python
+@dataclass
+class CostAlert:
+    warning_threshold: float = 0.10  # $0.10
+    critical_threshold: float = 0.50  # $0.50  
+    daily_limit: float = 10.00  # $10.00
+
+def _track_cost(self, session_id: Optional[str], tokens: int, is_input: bool = True):
+    # Reset daily cost if new day
+    current_date = datetime.utcnow().date()
+    if current_date > self.cost_reset_date:
+        self.daily_cost = 0.0
+        self.cost_reset_date = current_date
+    
+    # Calculate and track cost
+    cost = calculate_cost(tokens, self.model, "input" if is_input else "output")
+    self.daily_cost += cost
+    if session_id:
+        self.session_costs[session_id] = self.session_costs.get(session_id, 0.0) + cost
+    
+    # Check alerts
+    if session_id and self.session_costs[session_id] >= self.cost_alert.critical_threshold:
+        logger.critical(f"Session {session_id} exceeds critical cost threshold")
+    if self.daily_cost >= self.cost_alert.daily_limit:
+        self.status = ServiceStatus.UNAVAILABLE
+```
+
+### Error Categorization Pattern
+Categorize errors for appropriate handling:
+```python
+def _categorize_error(self, error: Exception) -> ErrorType:
+    error_class_name = error.__class__.__name__
+    
+    if "AuthenticationError" in error_class_name:
+        return ErrorType.AUTHENTICATION
+    elif "RateLimitError" in error_class_name:
+        return ErrorType.RATE_LIMIT
+    elif "APIConnectionError" in error_class_name:
+        return ErrorType.CONNECTION
+    elif "APITimeoutError" in error_class_name:
+        return ErrorType.TIMEOUT
+    # ... more error types
+    return ErrorType.UNKNOWN
+
+# Use categorization for user-friendly messages
+error_type = self._categorize_error(e)
+user_message = self._get_user_friendly_error(error_type)
+```
+
+### Fallback Response Pattern
+Provide educational continuity during outages:
+```python
+def _generate_fallback_response(self, context: str = "") -> str:
+    fallback_responses = [
+        "I apologize, but I'm having trouble responding right now. Let's take a moment to reflect on what we've discussed so far.",
+        "I seem to be having some difficulty at the moment. Perhaps we could explore this topic from a different angle?",
+        "I need a moment to gather my thoughts. In the meantime, how are you feeling about our conversation so far?"
+    ]
+    
+    import random
+    response = random.choice(fallback_responses)
+    if context:
+        response += f" {context}"
+    return response
+```
+
+### Service Health Monitoring Pattern
+Monitor and report service health:
+```python
+class ServiceStatus(Enum):
+    HEALTHY = "healthy"
+    DEGRADED = "degraded"
+    UNAVAILABLE = "unavailable"
+
+def get_service_status(self) -> Dict[str, Any]:
+    return {
+        "status": self.status.value,
+        "circuit_breaker_state": self.circuit_breaker.state,
+        "daily_cost": round(self.daily_cost, 4),
+        "daily_limit": self.cost_alert.daily_limit,
+        "model": self.model,
+        "environment": self.environment,
+        "last_error": self.last_error
+    }
+```
+
+**Key Features**:
+- Circuit breaker prevents cascading failures
+- Cost tracking prevents budget overruns
+- Fallback responses maintain educational value
+- User-friendly error messages
+- Comprehensive health monitoring
+- Environment variable configuration
+
 ### Conversation Context Management Pattern
 Format conversation history for AI while maintaining context:
 ```python

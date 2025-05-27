@@ -107,7 +107,8 @@ class ConversationService:
                 messages=[{"role": "user", "content": greeting_prompt}],
                 system_prompt=system_prompt,
                 max_tokens=150,  # Keep greetings concise
-                temperature=0.7
+                temperature=0.7,
+                session_id=session_db.id  # Pass session ID for cost tracking
             )
             
             # Count tokens for the greeting
@@ -279,7 +280,8 @@ class ConversationService:
                 messages=formatted_messages,
                 system_prompt=system_prompt,
                 max_tokens=500,  # Reasonable limit for conversational responses
-                temperature=0.7  # Balanced between creativity and consistency
+                temperature=0.7,  # Balanced between creativity and consistency
+                session_id=session.id  # Pass session ID for cost tracking
             )
             
             # Step 5: Count tokens and return

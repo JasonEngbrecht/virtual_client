@@ -28,10 +28,11 @@ python -m pytest tests/unit/test_database.py::TestDatabaseService::test_database
 python run_tests.py --cov=backend --cov-report=term-missing
 ```
 
-**Current Test Status** (as of Phase 1.4 Complete):
-- ✅ Unit tests: 73/73 passing
-- ✅ Integration tests: 78/78 passing (includes 20 client API tests added in Part 8)
-- ✅ Total tests: 171 passing with 81% code coverage
+**Current Test Status** (as of Day 3 Part 3):
+- ✅ Unit tests: 235+ passing
+- ✅ Integration tests: 234+ passing
+- ✅ Total tests: 469 passing
+- ✅ Recent additions: 13 tests for conversation service
 
 ## Test Organization
 
@@ -255,6 +256,52 @@ def test_service_method(self):
     with patch.object(service, 'get', return_value=mock_object):
         result = service.method(mock_db, param)
         assert result == expected
+```
+
+### 5. Service Mocking Pattern
+When mocking services imported by other services:
+
+```python
+# Mock services that are imported as instances
+def test_with_service_mocks(monkeypatch):
+    mock_client_service = Mock()
+    mock_client_service.get.return_value = mock_client
+    
+    # Apply to the imported instance, not the module
+    monkeypatch.setattr("backend.services.conversation_service.client_service", mock_client_service)
+```
+
+**Special case for Anthropic service** (factory function):
+```python
+# Anthropic service uses factory pattern
+mock_anthropic_instance = Mock()
+mock_anthropic_instance.generate_response.return_value = "AI response"
+mock_anthropic_service = Mock(return_value=mock_anthropic_instance)
+
+monkeypatch.setattr("backend.services.conversation_service.anthropic_service", mock_anthropic_service)
+```
+
+### 6. Pydantic Model Validation in Tests
+When mocking database objects that will be validated by Pydantic:
+
+```python
+from datetime import datetime
+
+# Include ALL required fields for Pydantic validation
+mock_session_db = Mock(
+    id="session-456",
+    student_id="student-123",
+    client_profile_id="client-123",
+    status="active",
+    total_tokens=25,
+    estimated_cost=0.0001,
+    session_notes=None,      # Include nullable fields
+    started_at=datetime.utcnow(),  # Include datetime fields
+    ended_at=None
+)
+
+# This can now be safely validated
+Session.model_validate(mock_session_db)  # Won't raise ValidationError
 ```
 
 ## Common Issues

@@ -17,10 +17,10 @@ from backend.models.client_profile import ClientProfile
 from backend.models.auth import StudentAuth, TeacherAuth
 
 # Import services
-from backend.services import session_service
-from backend.services import anthropic_service
-from backend.services import prompt_service
-from backend.services import client_service
+from backend.services.session_service import session_service
+from backend.services.anthropic_service import anthropic_service
+from backend.services.prompt_service import prompt_service
+from backend.services.client_service import client_service
 
 # Import utilities
 from backend.utils.token_counter import count_tokens
@@ -67,8 +67,75 @@ class ConversationService:
         Raises:
             ValueError: If client doesn't exist or student doesn't have access
         """
-        # TODO: Implement
-        pass
+        # Step 1: Validate client exists
+        client = client_service.get(db, client_id)
+        if not client:
+            raise ValueError(f"Client with ID {client_id} not found")
+        
+        # Step 2: TODO - If assignment_id provided, verify student has access
+        # This will be implemented when assignment validation is added
+        
+        # Step 3: Create the session
+        session_data = SessionCreate(
+            student_id=student.student_id,
+            client_profile_id=client_id
+        )
+        
+        session_db = session_service.create_session(
+            db=db,
+            session_data=session_data,
+            student_id=student.student_id
+        )
+        
+        # Step 4: Generate system prompt for the AI
+        system_prompt = prompt_service.generate_system_prompt(client)
+        
+        # Step 5: Generate initial greeting from the AI
+        greeting_prompt = (
+            f"You are meeting a social work student for the first time. "
+            f"Introduce yourself naturally as {client.name}, staying in character. "
+            f"Keep your greeting brief (1-2 sentences) and authentic to your personality and current situation. "
+            f"Don't immediately share all your problems - just a natural first interaction."
+        )
+        
+        try:
+            # Get the Anthropic service instance
+            anthropic = anthropic_service()
+            
+            # Generate the greeting
+            greeting_content = anthropic.generate_response(
+                messages=[{"role": "user", "content": greeting_prompt}],
+                system_prompt=system_prompt,
+                max_tokens=150,  # Keep greetings concise
+                temperature=0.7
+            )
+            
+            # Count tokens for the greeting
+            greeting_tokens = count_tokens(greeting_content)
+            
+        except Exception as e:
+            # Handle any Anthropic API errors gracefully
+            raise RuntimeError(f"Failed to generate AI greeting: {str(e)}")
+        
+        # Step 6: Store the AI greeting as the first message
+        message_data = MessageCreate(
+            role="assistant",
+            content=greeting_content,
+            token_count=greeting_tokens
+        )
+        
+        # Add message to session (this also updates session tokens and cost)
+        session_service.add_message(
+            db=db,
+            session_id=session_db.id,
+            message_data=message_data
+        )
+        
+        # Step 7: Refresh session from DB to get updated token counts
+        db.refresh(session_db)
+        
+        # Convert to Pydantic model and return
+        return Session.model_validate(session_db)
     
     def send_message(
         self,

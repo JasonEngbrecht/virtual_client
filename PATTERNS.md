@@ -412,6 +412,33 @@ Create singleton at module level:
 service_name = ServiceName(ModelDB)
 ```
 
+### Service Import Pattern
+**IMPORTANT**: Import service instances, not modules:
+```python
+# ✅ CORRECT - Import the instance directly
+from backend.services.client_service import client_service
+from backend.services.session_service import session_service
+from backend.services.prompt_service import prompt_service
+
+# Usage
+client = client_service.get(db, client_id)
+session = session_service.create_session(db, session_data, student_id)
+
+# ❌ WRONG - Don't import modules and access instance
+from backend.services import client_service  # This imports module
+client_service.client_service.get(db, client_id)  # Too verbose
+```
+
+**Special Case - Anthropic Service**:
+```python
+# Anthropic service uses a factory function pattern
+from backend.services.anthropic_service import anthropic_service
+
+# Usage - call the function to get instance
+anthropic = anthropic_service()
+response = anthropic.generate_response(...)
+```
+
 ### AI/LLM Service Pattern
 Centralized service for all AI interactions:
 ```python
@@ -885,6 +912,59 @@ def test_permission_denied(client: TestClient):
   - `test_create_client_success`
   - `test_update_client_not_found`
   - `test_delete_rubric_in_use_fails`
+
+### Service Mocking Pattern
+Properly mock services based on their import pattern:
+
+**Standard Service Mocking**:
+```python
+@pytest.fixture
+def mock_dependencies(monkeypatch):
+    # Mock service instances directly
+    mock_client_service = Mock()
+    mock_client_service.get.return_value = mock_client
+    
+    mock_session_service = Mock()
+    mock_session_service.create_session.return_value = mock_session_db
+    
+    # Apply mocks to the imported instances
+    monkeypatch.setattr("backend.services.conversation_service.client_service", mock_client_service)
+    monkeypatch.setattr("backend.services.conversation_service.session_service", mock_session_service)
+```
+
+**Anthropic Service Mocking** (factory function pattern):
+```python
+# Mock the instance that will be returned
+mock_anthropic_instance = Mock()
+mock_anthropic_instance.generate_response.return_value = "AI response"
+
+# Mock the factory function to return the instance
+mock_anthropic_service = Mock(return_value=mock_anthropic_instance)
+
+monkeypatch.setattr("backend.services.conversation_service.anthropic_service", mock_anthropic_service)
+```
+
+**Mock Objects for Pydantic Validation**:
+```python
+# When mocking database objects that will be validated by Pydantic,
+# include ALL required fields:
+from datetime import datetime
+
+mock_session_db = Mock(
+    id="session-456",
+    student_id="student-123",
+    client_profile_id="client-123",
+    status="active",
+    total_tokens=25,
+    estimated_cost=0.0001,
+    session_notes=None,  # Include nullable fields
+    started_at=datetime.utcnow(),  # Include datetime fields
+    ended_at=None
+)
+
+# This mock can now be safely passed to Pydantic validation:
+# Session.model_validate(mock_session_db)
+```
 
 ### Floating-Point Comparison Pattern
 Use pytest's `approx()` for comparing floating-point values:

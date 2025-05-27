@@ -167,8 +167,66 @@ class ConversationService:
             ValueError: If session doesn't exist or user doesn't have access
             RuntimeError: If AI response generation fails
         """
-        # TODO: Implement
-        pass
+        # Step 1: Get and validate the session
+        session_db = session_service.get_session(db, session_id)
+        if not session_db:
+            raise ValueError(f"Session with ID {session_id} not found")
+        
+        # Verify student has access to this session
+        if session_db.student_id != user.student_id:
+            raise ValueError(f"Student {user.student_id} does not have access to session {session_id}")
+        
+        # Check if session is still active
+        if session_db.status != "active":
+            raise ValueError(f"Session {session_id} is not active")
+        
+        # Step 2: Store the user's message
+        user_message_data = MessageCreate(
+            role="user",
+            content=content,
+            token_count=count_tokens(content)
+        )
+        
+        user_message = session_service.add_message(
+            db=db,
+            session_id=session_id,
+            message_data=user_message_data
+        )
+        
+        # Step 3: Get conversation history for context
+        # Get all messages including the one we just added
+        messages = session_service.get_messages(
+            db=db,
+            session_id=session_id,
+            limit=50  # Reasonable limit to control context size
+        )
+        
+        # Step 4: Generate AI response
+        try:
+            response_content, response_tokens = self.get_ai_response(
+                db=db,
+                session=session_db,
+                user_message=content,
+                conversation_history=messages[:-1]  # Exclude the message we just added
+            )
+        except Exception as e:
+            raise RuntimeError(f"Failed to generate AI response: {str(e)}")
+        
+        # Step 5: Store the AI response
+        ai_message_data = MessageCreate(
+            role="assistant",
+            content=response_content,
+            token_count=response_tokens
+        )
+        
+        ai_message = session_service.add_message(
+            db=db,
+            session_id=session_id,
+            message_data=ai_message_data
+        )
+        
+        # Convert to Pydantic model and return
+        return Message.model_validate(ai_message)
     
     def get_ai_response(
         self,
@@ -199,8 +257,38 @@ class ConversationService:
         Raises:
             RuntimeError: If AI response generation fails
         """
-        # TODO: Implement
-        pass
+        # Step 1: Get the client profile
+        client = client_service.get(db, session.client_profile_id)
+        if not client:
+            raise RuntimeError(f"Client profile {session.client_profile_id} not found")
+        
+        # Step 2: Generate system prompt
+        system_prompt = prompt_service.generate_system_prompt(client)
+        
+        # Step 3: Format conversation history for API
+        formatted_messages = self._format_conversation_for_ai(
+            messages=conversation_history,
+            latest_user_message=user_message
+        )
+        
+        # Step 4: Call Anthropic API
+        try:
+            anthropic = anthropic_service()
+            
+            response_content = anthropic.generate_response(
+                messages=formatted_messages,
+                system_prompt=system_prompt,
+                max_tokens=500,  # Reasonable limit for conversational responses
+                temperature=0.7  # Balanced between creativity and consistency
+            )
+            
+            # Step 5: Count tokens and return
+            response_tokens = count_tokens(response_content)
+            
+            return response_content, response_tokens
+            
+        except Exception as e:
+            raise RuntimeError(f"Anthropic API error: {str(e)}")
     
     def end_conversation(
         self,
@@ -224,8 +312,33 @@ class ConversationService:
         Raises:
             ValueError: If session doesn't exist or user doesn't have access
         """
-        # TODO: Implement
-        pass
+        # Get and validate the session
+        session_db = session_service.get_session(db, session_id)
+        if not session_db:
+            raise ValueError(f"Session with ID {session_id} not found")
+        
+        # Verify student has access to this session
+        if session_db.student_id != user.student_id:
+            raise ValueError(f"Student {user.student_id} does not have access to session {session_id}")
+        
+        # Check if session is already ended
+        if session_db.status == "completed":
+            raise ValueError(f"Session {session_id} is already completed")
+        
+        # End the session using session service
+        ended_session = session_service.end_session(
+            db=db,
+            session_id=session_id,
+            student_id=user.student_id,
+            session_notes=session_notes
+        )
+        
+        # Check if end_session returned None (shouldn't happen due to our checks above)
+        if not ended_session:
+            raise RuntimeError(f"Failed to end session {session_id}")
+        
+        # Convert to Pydantic model and return
+        return Session.model_validate(ended_session)
     
     def _format_conversation_for_ai(
         self,
@@ -245,8 +358,22 @@ class ConversationService:
         Returns:
             list: Formatted messages for the API
         """
-        # TODO: Implement
-        pass
+        formatted = []
+        
+        # Add all historical messages
+        for msg in messages:
+            formatted.append({
+                "role": msg.role,
+                "content": msg.content
+            })
+        
+        # Add the latest user message
+        formatted.append({
+            "role": "user",
+            "content": latest_user_message
+        })
+        
+        return formatted
     
     def _calculate_cost(self, token_count: int, model: str) -> float:
         """
@@ -259,8 +386,22 @@ class ConversationService:
         Returns:
             float: Estimated cost in dollars
         """
-        # TODO: Implement
-        pass
+        # This method is kept for potential future use, but cost calculation
+        # is actually handled by the session service using the token_counter utility
+        # which has the pricing models configured.
+        
+        # For now, we'll use the same pricing as configured in token_counter
+        if "haiku" in model.lower():
+            # Haiku: $0.25 per 1M input, $1.25 per 1M output
+            # Average to $0.75 per 1M tokens
+            return (token_count / 1_000_000) * 0.75
+        elif "sonnet" in model.lower():
+            # Sonnet: $3 per 1M input, $15 per 1M output  
+            # Average to $9 per 1M tokens
+            return (token_count / 1_000_000) * 9.0
+        else:
+            # Default to Haiku pricing
+            return (token_count / 1_000_000) * 0.75
 
 
 # Create a singleton instance

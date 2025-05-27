@@ -405,6 +405,77 @@ if not section_service.can_update(db, section_id, teacher_id):
 enrollments = enrollment_service.get_section_roster(db, section_id)
 ```
 
+### Conversation Orchestration Pattern
+For complex flows that coordinate multiple services:
+```python
+class ConversationService:
+    """Orchestrates conversation flow between multiple services"""
+    
+    def start_conversation(self, db: DBSession, student: StudentAuth, client_id: str) -> Session:
+        # 1. Validate prerequisites
+        client = client_service.get(db, client_id)
+        if not client:
+            raise ValueError(f"Client with ID {client_id} not found")
+        
+        # 2. Create session
+        session_db = session_service.create_session(db, SessionCreate(
+            student_id=student.student_id,
+            client_profile_id=client_id
+        ), student.student_id)
+        
+        # 3. Generate AI context
+        system_prompt = prompt_service.generate_system_prompt(client)
+        
+        # 4. Get AI greeting
+        anthropic = anthropic_service()
+        greeting = anthropic.generate_response(
+            messages=[{"role": "user", "content": "Introduce yourself..."}],
+            system_prompt=system_prompt
+        )
+        
+        # 5. Store greeting as first message
+        session_service.add_message(db, session_db.id, MessageCreate(
+            role="assistant",
+            content=greeting,
+            token_count=count_tokens(greeting)
+        ))
+        
+        return Session.model_validate(session_db)
+
+    def send_message(self, db: DBSession, session_id: str, content: str, user: StudentAuth) -> Message:
+        # 1. Validate access
+        session_db = session_service.get_session(db, session_id)
+        if not session_db or session_db.student_id != user.student_id:
+            raise ValueError("Access denied")
+        
+        # 2. Store user message
+        user_msg = session_service.add_message(db, session_id, MessageCreate(
+            role="user", content=content
+        ))
+        
+        # 3. Get conversation context
+        history = session_service.get_messages(db, session_id, limit=50)
+        
+        # 4. Generate AI response with full context
+        response_content, tokens = self.get_ai_response(
+            db, session_db, content, history[:-1]  # Exclude just-added message
+        )
+        
+        # 5. Store AI response
+        ai_msg = session_service.add_message(db, session_id, MessageCreate(
+            role="assistant", content=response_content, token_count=tokens
+        ))
+        
+        return Message.model_validate(ai_msg)
+```
+
+**Key Points**:
+- Coordinate multiple services in a single flow
+- Handle errors at each step with descriptive messages
+- Maintain transaction consistency
+- Pass authentication context through the flow
+- Return properly typed responses
+
 ### Global Service Instances
 Create singleton at module level:
 ```python
@@ -437,6 +508,32 @@ from backend.services.anthropic_service import anthropic_service
 # Usage - call the function to get instance
 anthropic = anthropic_service()
 response = anthropic.generate_response(...)
+```
+
+### Access Validation Pattern
+Consistent access checking across services:
+```python
+def validate_student_session_access(self, db: DBSession, session_id: str, student_id: str) -> SessionDB:
+    """Validate student has access to session"""
+    session = self.get_session(db, session_id)
+    
+    if not session:
+        raise ValueError(f"Session with ID {session_id} not found")
+    
+    if session.student_id != student_id:
+        raise ValueError(f"Student {student_id} does not have access to session {session_id}")
+    
+    if session.status != "active":
+        raise ValueError(f"Session {session_id} is not active")
+    
+    return session
+
+# Usage in methods
+def send_message(self, db: DBSession, session_id: str, content: str, user: StudentAuth) -> Message:
+    # Single line validates all access rules
+    session = self.validate_student_session_access(db, session_id, user.student_id)
+    
+    # Continue with business logic...
 ```
 
 ### AI/LLM Service Pattern
@@ -522,6 +619,45 @@ def test_connection(self) -> Dict[str, Any]:
         return {"status": "error", "error_type": "authentication", "error": str(e)}
     except Exception as e:
         return {"status": "error", "error_type": "unknown", "error": str(e)}
+```
+
+### Conversation Context Management Pattern
+Format conversation history for AI while maintaining context:
+```python
+def _format_conversation_for_ai(
+    self,
+    messages: list[MessageDB],
+    latest_user_message: str
+) -> list[Dict[str, str]]:
+    """Format messages for Anthropic API format"""
+    formatted = []
+    
+    # Add all historical messages
+    for msg in messages:
+        formatted.append({
+            "role": msg.role,
+            "content": msg.content
+        })
+    
+    # Add the latest user message
+    formatted.append({
+        "role": "user",
+        "content": latest_user_message
+    })
+    
+    return formatted
+
+# Usage: Pass to AI with proper context window
+formatted_msgs = self._format_conversation_for_ai(
+    messages=history[:-1],  # Exclude the just-added message
+    latest_user_message=new_content
+)
+
+response = anthropic.generate_response(
+    messages=formatted_msgs,
+    system_prompt=system_prompt,
+    max_tokens=500  # Control response length
+)
 ```
 
 ### Service Method Naming

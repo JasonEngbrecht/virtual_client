@@ -2060,6 +2060,277 @@ maxUploadSize = 10
 enableCORS = false
 ```
 
+### MVP Utilities Pattern
+Centralize all common Streamlit functionality in a shared utils module:
+
+```python
+# mvp/utils.py
+import streamlit as st
+from sqlalchemy.orm import Session
+from sqlalchemy import text  # Required for raw SQL queries
+from backend.services.database import db_service
+from backend.models.auth import TeacherAuth, StudentAuth
+
+# Database connection for Streamlit
+def get_database_connection() -> Session:
+    """Get a fresh database session for Streamlit apps"""
+    return db_service.SessionLocal()
+
+# Mock authentication for MVP
+def get_mock_teacher() -> TeacherAuth:
+    return TeacherAuth(id="teacher-1", teacher_id="teacher-1")
+
+def get_mock_student() -> StudentAuth:
+    return StudentAuth(id="student-1", student_id="student-1")
+
+# Standardized page configuration
+def setup_page_config(page_title: str = "Virtual Client MVP", 
+                      page_icon: str = "🎓", 
+                      layout: str = "wide"):
+    st.set_page_config(
+        page_title=page_title,
+        page_icon=page_icon,
+        layout=layout,
+        initial_sidebar_state="expanded"
+    )
+
+# UI helper functions
+def show_error_message(message: str):
+    st.error(f"❌ {message}")
+
+def show_success_message(message: str):
+    st.success(f"✅ {message}")
+
+# Cost and token formatting
+def format_cost(cost: float) -> str:
+    if cost < 0.01:
+        return f"${cost:.4f}"
+    elif cost < 1.00:
+        return f"${cost:.3f}"
+    else:
+        return f"${cost:.2f}"
+
+def format_tokens(tokens: int) -> str:
+    return f"{tokens:,}" if tokens >= 1000 else str(tokens)
+
+# Model pricing constants
+DEFAULT_MODEL = "claude-3-haiku-20240307"
+MODEL_COSTS = {
+    "claude-3-haiku-20240307": {"input": 0.00025, "output": 0.00125},
+    "claude-3-5-sonnet-20241022": {"input": 0.003, "output": 0.015}
+}
+```
+
+**Key Features**:
+- Consistent database connections for Streamlit
+- Mock authentication that matches actual auth models
+- Standardized UI components and messages
+- Centralized cost/token formatting
+- Model pricing configuration
+
+### Streamlit Session State Pattern
+Initialize session state consistently across all MVP pages:
+
+```python
+def initialize_session_state() -> None:
+    """Initialize common session state variables"""
+    if 'initialized' not in st.session_state:
+        st.session_state.initialized = True
+        st.session_state.current_session_id = None
+        st.session_state.messages = []
+        st.session_state.total_cost = 0.0
+        st.session_state.total_tokens = 0
+```
+
+### Streamlit Form Validation Pattern
+Validate form inputs within Streamlit's form context:
+
+```python
+def create_client_form():
+    """Create form with validation"""
+    with st.form("client_form", clear_on_submit=True):
+        # Input fields
+        name = st.text_input("Name*", placeholder="e.g., Maria Rodriguez")
+        personality_traits = st.multiselect("Traits", PERSONALITY_TRAITS)
+        
+        submitted = st.form_submit_button("Create Client", type="primary")
+        
+        if submitted:
+            # Validation checks
+            if not name:
+                show_error_message("Name is required")
+                return None
+            
+            if len(personality_traits) < 2:
+                show_error_message("Please select at least 2 personality traits")
+                return None
+            
+            # Create and return validated data
+            return ClientProfileCreate(name=name, personality_traits=personality_traits)
+    
+    return None
+```
+
+**Key Points**:
+- Use `clear_on_submit=True` to reset form after successful submission
+- Return `None` for validation failures
+- Show clear error messages using standardized UI helpers
+- Validate before creating Pydantic models
+
+### Streamlit Data Display Pattern
+Display lists of items in a responsive grid layout:
+
+```python
+def display_client_list(teacher_id: str):
+    """Display clients in a grid with expandable details"""
+    try:
+        db = get_database_connection()
+        clients = client_service.get_teacher_clients(db, teacher_id)
+        
+        if not clients:
+            show_info_message("No clients created yet. Create your first client above!")
+            return
+        
+        # Display in 2-column grid
+        for i in range(0, len(clients), 2):
+            cols = st.columns(2)
+            
+            for j, col in enumerate(cols):
+                if i + j < len(clients):
+                    client = clients[i + j]
+                    with col:
+                        # Display client card
+                        st.markdown(f"### {client.name}")
+                        st.write(f"**Age:** {client.age}")
+                        
+                        # Expandable details
+                        with st.expander("View Full Details"):
+                            # Show complete information
+                            pass
+                        
+                        # Action buttons
+                        if st.button(f"Test", key=f"test_{client.id}"):
+                            st.session_state.selected_client_id = client.id
+    
+    except Exception as e:
+        show_error_message(f"Error loading clients: {str(e)}")
+    finally:
+        db.close()
+```
+
+**Key Points**:
+- Always use try/except/finally for database operations
+- Use unique keys for buttons in loops (`key=f"test_{client.id}"`)
+- Display summary information with expandable details
+- Store selections in session state for cross-page access
+
+### Streamlit Tab Organization Pattern
+Organize related features using tabs:
+
+```python
+def main():
+    st.title("Teacher Interface")
+    
+    # Create tabs for different features
+    tab1, tab2, tab3 = st.tabs(["Create Client", "Test Conversations", "View History"])
+    
+    with tab1:
+        # Feature 1 implementation
+        client_data = create_client_form()
+        if client_data:
+            # Handle form submission
+            pass
+    
+    with tab2:
+        # Feature 2 placeholder
+        show_info_message("Coming in next part!")
+    
+    with tab3:
+        # Feature 3 placeholder
+        show_info_message("Coming soon!")
+```
+
+**Benefits**:
+- Clean organization of related features
+- Easy navigation without page reloads
+- Progressive implementation (add features to tabs incrementally)
+- Clear visual separation of functionality
+
+### SQL Query Pattern for Streamlit
+Always use `text()` for raw SQL queries in newer SQLAlchemy versions:
+
+```python
+from sqlalchemy import text
+
+# ❌ WRONG - Causes error in SQLAlchemy 2.0+
+result = db.execute("SELECT COUNT(*) FROM client_profiles")
+
+# ✅ CORRECT - Explicitly declare as text
+result = db.execute(text("SELECT COUNT(*) FROM client_profiles"))
+```
+
+### MVP Testing Pattern
+Test MVP utilities without creating separate test scripts:
+
+```python
+# tests/unit/test_mvp_utils.py
+class TestMVPUtils:
+    def test_get_database_connection(self):
+        db = get_database_connection()
+        assert isinstance(db, Session)
+        db.close()  # Clean up
+    
+    def test_format_cost(self):
+        assert format_cost(0.0001) == "$0.0001"  # 4 decimals < $0.01
+        assert format_cost(0.123) == "$0.123"    # 3 decimals < $1.00
+        assert format_cost(10.50) == "$10.50"    # 2 decimals >= $1.00
+
+# tests/integration/test_mvp_setup.py
+class TestMVPIntegration:
+    def test_mvp_directory_structure(self):
+        mvp_path = project_root / "mvp"
+        required_files = [
+            "__init__.py", "utils.py", "test_streamlit.py",
+            "teacher_test.py", "student_practice.py", "admin_monitor.py"
+        ]
+        for filename in required_files:
+            assert (mvp_path / filename).exists()
+```
+
+### Streamlit UI Testing Challenges
+Streamlit's architecture makes traditional unit testing difficult. Use these approaches:
+
+**1. Business Logic Testing** - Test logic separately from UI:
+```python
+# Instead of testing Streamlit components, test the logic
+class TestTeacherInterfaceLogic:
+    def test_personality_traits_validation_logic(self):
+        traits = ["anxious", "cooperative"]
+        assert 2 <= len(traits) <= 5  # Valid range
+        
+    def test_client_data_transformation(self):
+        form_data = {"name": "Test", "age": 30, "personality_traits": ["anxious", "cooperative"]}
+        client = ClientProfileCreate(**form_data)
+        assert client.name == "Test"
+```
+
+**2. Integration Testing** - Test database operations and service calls:
+```python
+# Test the actual service integration
+def test_create_client_full_flow(db_session, teacher):
+    client_data = ClientProfileCreate(name="Test Client", age=30, personality_traits=["anxious", "cooperative"])
+    created = client_service.create_client_for_teacher(db_session, client_data, teacher.teacher_id)
+    assert created.id is not None
+```
+
+**3. Manual Testing** - For UI-specific features:
+- Run the Streamlit app locally
+- Test form validation visually
+- Verify layout and responsiveness
+- Check error message display
+
+**Recommendation**: Focus on integration tests for Streamlit apps - they provide better coverage than attempting to mock Streamlit components.
+
 ---
 
 *This patterns guide is a living document. Update it when establishing new patterns or improving existing ones.*

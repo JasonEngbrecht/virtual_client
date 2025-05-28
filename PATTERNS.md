@@ -1,3 +1,485 @@
+### Admin Metrics Aggregation Pattern
+For system-wide monitoring and analytics:
+
+```python
+def fetch_admin_metrics() -> Dict[str, Any]:
+    """
+    Aggregate system metrics across all users and sessions.
+    Uses proper error handling and date-based filtering.
+    """
+    metrics = {
+        'active_sessions': 0,
+        'tokens_today': 0,
+        'cost_today': 0.0,
+        'total_sessions': 0,
+        'error': None
+    }
+    
+    db = None
+    try:
+        db = get_database_connection()
+        
+        # Use service.count() for efficient counting
+        metrics['active_sessions'] = session_service.count(
+            db=db,
+            status='active'
+        )
+        
+        # Get today's date range (midnight to now)
+        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = datetime.now()
+        
+        # Query today's sessions for aggregation
+        today_sessions = db.query(SessionDB).filter(
+            SessionDB.started_at >= today_start,
+            SessionDB.started_at <= today_end
+        ).all()
+        
+        # Aggregate using Python (good for small datasets)
+        metrics['tokens_today'] = sum(session.total_tokens or 0 for session in today_sessions)
+        metrics['cost_today'] = sum(session.estimated_cost or 0.0 for session in today_sessions)
+        
+        return metrics
+        
+    except Exception as e:
+        metrics['error'] = str(e)
+        return metrics
+    finally:
+        if db:
+            db.close()
+
+# For larger datasets, use SQL aggregation:
+def fetch_metrics_with_sql_aggregation(db: Session) -> Dict[str, Any]:
+    """Use SQL SUM for better performance with large datasets"""
+    from sqlalchemy import func
+    
+    today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    result = db.query(
+        func.sum(SessionDB.total_tokens).label('total_tokens'),
+        func.sum(SessionDB.estimated_cost).label('total_cost'),
+        func.count(SessionDB.id).label('session_count')
+    ).filter(
+        SessionDB.started_at >= today_start
+    ).first()
+    
+    return {
+        'tokens_today': result.total_tokens or 0,
+        'cost_today': result.total_cost or 0.0,
+        'sessions_today': result.session_count or 0
+    }
+```
+
+**Key Features**:
+- Proper error handling with error field in response
+- Date-based filtering for "today" metrics
+- Efficient counting using service methods
+- Database connection management with try/finally
+- Support for both Python and SQL aggregation
+- Returns consistent structure even on errors
+
+**Use Cases**:
+- Admin dashboards
+- System monitoring
+- Usage analytics
+- Cost tracking
+- Performance monitoring
+
+### Streamlit Auto-Refresh Pattern
+Implement auto-refresh functionality with session state management:
+
+```python
+import time
+import streamlit as st
+
+def handle_auto_refresh():
+    """
+    Handle auto-refresh functionality with session state management.
+    """
+    # Initialize auto-refresh state if not exists
+    if 'auto_refresh_enabled' not in st.session_state:
+        st.session_state.auto_refresh_enabled = False
+    if 'last_refresh_time' not in st.session_state:
+        st.session_state.last_refresh_time = time.time()
+    
+    # Auto-refresh logic
+    if st.session_state.auto_refresh_enabled:
+        current_time = time.time()
+        # Refresh every 30 seconds
+        if current_time - st.session_state.last_refresh_time >= 30:
+            st.session_state.last_refresh_time = current_time
+            st.rerun()
+
+# Usage in main function
+def main():
+    # Auto-refresh toggle
+    auto_refresh = st.checkbox(
+        "Auto-refresh (30s)", 
+        value=st.session_state.get('auto_refresh_enabled', False),
+        help="Automatically refresh dashboard every 30 seconds"
+    )
+    st.session_state.auto_refresh_enabled = auto_refresh
+    
+    # Handle auto-refresh
+    handle_auto_refresh()
+    
+    # Rest of application logic...
+```
+
+**Key Features**:
+- Uses session state to persist refresh settings across reruns
+- Configurable refresh interval (30 seconds default)
+- User can toggle auto-refresh on/off
+- Automatic timestamp tracking to prevent excessive reruns
+- Works with any Streamlit dashboard
+
+### Usage Timeline Pattern
+Aggregate time-series data into hourly buckets for visualization:
+
+```python
+import pandas as pd
+from datetime import datetime, timedelta
+from typing import List
+
+def fetch_usage_timeline(hours: int = 24) -> pd.DataFrame:
+    """
+    Fetch hourly usage data for the specified time period.
+    
+    Args:
+        hours: Number of hours to look back (default: 24)
+        
+    Returns:
+        DataFrame with hourly usage data
+    """
+    db = None
+    try:
+        db = get_database_connection()
+        
+        # Calculate time range
+        now = datetime.now()
+        start_time = now - timedelta(hours=hours)
+        
+        # Get relevant sessions
+        from backend.models.session import SessionDB
+        sessions = db.query(SessionDB).filter(
+            SessionDB.started_at >= start_time
+        ).all()
+        
+        # Create hourly buckets
+        usage_data = []
+        for i in range(hours):
+            hour_start = start_time + timedelta(hours=i)
+            hour_end = hour_start + timedelta(hours=1)
+            
+            # Aggregate data for this hour
+            hour_tokens = sum(
+                session.total_tokens or 0 
+                for session in sessions 
+                if hour_start <= session.started_at < hour_end
+            )
+            hour_cost = sum(
+                session.estimated_cost or 0.0 
+                for session in sessions 
+                if hour_start <= session.started_at < hour_end
+            )
+            
+            usage_data.append({
+                'Hour': hour_start.strftime('%H:%M'),
+                'Tokens': hour_tokens,
+                'Cost': hour_cost,
+                'Sessions': len([
+                    s for s in sessions 
+                    if hour_start <= s.started_at < hour_end
+                ])
+            })
+        
+        return pd.DataFrame(usage_data)
+        
+    except Exception as e:
+        # Return empty DataFrame on error
+        return pd.DataFrame(columns=['Hour', 'Tokens', 'Cost', 'Sessions'])
+    finally:
+        if db:
+            db.close()
+
+# Usage with Streamlit visualization
+def display_usage_graphs():
+    usage_df = fetch_usage_timeline()
+    
+    if usage_df.empty:
+        st.info("No usage data available")
+        return
+    
+    # Side-by-side charts
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.write("**Token Usage by Hour**")
+        if usage_df['Tokens'].sum() > 0:
+            st.line_chart(usage_df.set_index('Hour')['Tokens'])
+        else:
+            st.info("No token usage")
+    
+    with col2:
+        st.write("**Cost by Hour**")
+        if usage_df['Cost'].sum() > 0:
+            st.line_chart(usage_df.set_index('Hour')['Cost'])
+        else:
+            st.info("No costs")
+    
+    # Summary metrics
+    total_tokens = usage_df['Tokens'].sum()
+    total_cost = usage_df['Cost'].sum()
+    peak_hour_tokens = usage_df['Tokens'].max()
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Total Tokens", format_tokens(total_tokens))
+    with col2:
+        st.metric("Total Cost", format_cost(total_cost))
+    with col3:
+        st.metric("Peak Hour", format_tokens(peak_hour_tokens))
+```
+
+**Key Features**:
+- Configurable time range (default 24 hours)
+- Hourly bucketing for consistent visualization
+- Empty DataFrame fallback for error handling
+- Pandas DataFrame for easy Streamlit integration
+- Summary statistics calculation
+- Supports multiple metrics (tokens, cost, session count)
+
+### Service Health Monitoring Pattern
+Monitor external service health with status indicators:
+
+```python
+from enum import Enum
+from datetime import datetime
+from typing import Dict, Any, Optional
+
+class ServiceStatus(Enum):
+    HEALTHY = "healthy"
+    DEGRADED = "degraded"
+    UNAVAILABLE = "unavailable"
+
+def check_service_health(service_name: str) -> Dict[str, Any]:
+    """
+    Check health of external service.
+    
+    Returns:
+        Dictionary with health status and details
+    """
+    if service_name == "anthropic":
+        return check_anthropic_health()
+    elif service_name == "database":
+        return check_database_health()
+    else:
+        return {"status": "unknown", "error": f"Unknown service: {service_name}"}
+
+def check_anthropic_health() -> Dict[str, Any]:
+    """Check Anthropic API health"""
+    try:
+        anthropic_service = get_anthropic_service()
+        status_info = anthropic_service.get_service_status()
+        
+        return {
+            "status": status_info.get('status', 'unknown'),
+            "model": status_info.get('model', 'Unknown'),
+            "environment": status_info.get('environment', 'Unknown'),
+            "circuit_breaker_state": status_info.get('circuit_breaker_state', 'Unknown'),
+            "daily_cost": status_info.get('daily_cost', 0.0),
+            "daily_limit": status_info.get('daily_limit', 10.0),
+            "last_error": status_info.get('last_error'),
+            "last_check": datetime.now().strftime('%H:%M:%S')
+        }
+    except Exception as e:
+        return {
+            "status": "unavailable",
+            "error": str(e),
+            "last_check": datetime.now().strftime('%H:%M:%S')
+        }
+
+def check_database_health() -> Dict[str, Any]:
+    """Check database connectivity"""
+    try:
+        db = get_database_connection()
+        # Simple test query
+        from backend.services.session_service import session_service
+        test_count = session_service.count(db=db)
+        db.close()
+        
+        return {
+            "status": "healthy",
+            "connection": "active",
+            "total_sessions": test_count,
+            "last_check": datetime.now().strftime('%H:%M:%S')
+        }
+    except Exception as e:
+        return {
+            "status": "unavailable",
+            "error": str(e),
+            "last_check": datetime.now().strftime('%H:%M:%S')
+        }
+
+# Streamlit UI display
+def display_service_health():
+    col1, col2 = st.columns(2)
+    
+    # Status emoji mapping
+    status_emoji = {
+        'healthy': '🟢',
+        'degraded': '🟡', 
+        'unavailable': '🔴'
+    }
+    
+    with col1:
+        st.write("**API Service**")
+        api_health = check_service_health("anthropic")
+        status = api_health.get('status', 'unknown')
+        
+        st.write(f"{status_emoji.get(status, '⚪')} **Status:** {status.title()}")
+        st.write(f"**Model:** {api_health.get('model', 'Unknown')}")
+        st.write(f"**Last Check:** {api_health.get('last_check', 'Never')}")
+        
+        # Show error details if any
+        if api_health.get('last_error'):
+            with st.expander("⚠️ Error Details"):
+                error = api_health['last_error']
+                st.code(f"Type: {error.get('type', 'Unknown')}\nMessage: {error.get('message', 'No details')}")
+    
+    with col2:
+        st.write("**Database Service**")
+        db_health = check_service_health("database")
+        status = db_health.get('status', 'unknown')
+        
+        st.write(f"{status_emoji.get(status, '⚪')} **Status:** {status.title()}")
+        st.write(f"**Connection:** {db_health.get('connection', 'Unknown')}")
+        st.write(f"**Last Check:** {db_health.get('last_check', 'Never')}")
+```
+
+**Key Features**:
+- Standardized health check interface for multiple services
+- Color-coded status indicators (🟢🟡🔴)
+- Error details with expandable sections
+- Timestamp tracking for monitoring staleness
+- Easy extension for new services
+- Integration with existing service status APIs
+
+### Error Log Aggregation Pattern
+Collect and display system errors with severity categorization:
+
+```python
+from typing import List, Dict, Any
+from datetime import datetime
+from enum import Enum
+
+class ErrorSeverity(Enum):
+    CRITICAL = "Critical"
+    HIGH = "High" 
+    MEDIUM = "Medium"
+    LOW = "Low"
+
+def collect_system_errors() -> List[Dict[str, Any]]:
+    """
+    Collect recent errors from various system components.
+    
+    Returns:
+        List of error dictionaries with standardized format
+    """
+    errors = []
+    
+    # Check API service errors
+    try:
+        anthropic_service = get_anthropic_service()
+        status_info = anthropic_service.get_service_status()
+        last_error = status_info.get('last_error')
+        
+        if last_error:
+            errors.append({
+                'timestamp': last_error.get('timestamp', 'Unknown'),
+                'service': 'Anthropic API',
+                'type': last_error.get('type', 'Unknown'),
+                'message': last_error.get('message', 'No details'),
+                'severity': categorize_error_severity(last_error.get('type'))
+            })
+    except Exception as e:
+        errors.append({
+            'timestamp': datetime.now().isoformat(),
+            'service': 'Anthropic API',
+            'type': 'service_initialization_error',
+            'message': str(e),
+            'severity': ErrorSeverity.HIGH.value
+        })
+    
+    # Check database errors
+    try:
+        db = get_database_connection()
+        db.close()
+    except Exception as e:
+        errors.append({
+            'timestamp': datetime.now().isoformat(),
+            'service': 'Database',
+            'type': 'connection_error',
+            'message': str(e),
+            'severity': ErrorSeverity.CRITICAL.value
+        })
+    
+    return errors
+
+def categorize_error_severity(error_type: str) -> str:
+    """Categorize error severity based on error type"""
+    critical_errors = ['authentication', 'connection', 'database']
+    high_errors = ['rate_limit', 'timeout', 'server_error']
+    medium_errors = ['invalid_request', 'validation']
+    
+    if any(e in error_type.lower() for e in critical_errors):
+        return ErrorSeverity.CRITICAL.value
+    elif any(e in error_type.lower() for e in high_errors):
+        return ErrorSeverity.HIGH.value
+    elif any(e in error_type.lower() for e in medium_errors):
+        return ErrorSeverity.MEDIUM.value
+    else:
+        return ErrorSeverity.LOW.value
+
+# Streamlit display
+def display_error_logs():
+    errors = collect_system_errors()
+    
+    if not errors:
+        st.success("✅ No recent errors detected!")
+        st.info("System appears to be running smoothly.")
+        return
+    
+    st.warning(f"⚠️ Found {len(errors)} recent issue(s):")
+    
+    # Severity color mapping
+    severity_color = {
+        'Critical': '🔴',
+        'High': '🟠', 
+        'Medium': '🟡',
+        'Low': '🟢'
+    }
+    
+    for error in errors:
+        severity = error.get('severity', 'Low')
+        icon = severity_color.get(severity, '⚪')
+        
+        with st.expander(f"{icon} {error['service']} - {error['type']}"):
+            st.write(f"**Timestamp:** {error['timestamp']}")
+            st.write(f"**Severity:** {error['severity']}")
+            st.write(f"**Service:** {error['service']}")
+            st.write(f"**Type:** {error['type']}")
+            st.write(f"**Message:** {error['message']}")
+```
+
+**Key Features**:
+- Standardized error format across services
+- Automatic severity categorization based on error type
+- Color-coded severity indicators
+- Expandable error details for debugging
+- Easy extension for new error sources
+- Clear visual hierarchy for error prioritization
+
 # Virtual Client - Established Patterns Reference
 
 Quick reference for implementation patterns. Organized by category for easy navigation.
@@ -1051,6 +1533,93 @@ def get_section_stats(self, db: Session, section_id: str) -> Dict:
         "total_count": stats.total_count or 0
     }
 ```
+
+### Admin Metrics Aggregation Pattern
+For system-wide monitoring and analytics:
+
+```python
+def fetch_admin_metrics() -> Dict[str, Any]:
+    """
+    Aggregate system metrics across all users and sessions.
+    Uses proper error handling and date-based filtering.
+    """
+    metrics = {
+        'active_sessions': 0,
+        'tokens_today': 0,
+        'cost_today': 0.0,
+        'total_sessions': 0,
+        'error': None
+    }
+    
+    db = None
+    try:
+        db = get_database_connection()
+        
+        # Use service.count() for efficient counting
+        metrics['active_sessions'] = session_service.count(
+            db=db,
+            status='active'
+        )
+        
+        # Get today's date range (midnight to now)
+        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = datetime.now()
+        
+        # Query today's sessions for aggregation
+        today_sessions = db.query(SessionDB).filter(
+            SessionDB.started_at >= today_start,
+            SessionDB.started_at <= today_end
+        ).all()
+        
+        # Aggregate using Python (good for small datasets)
+        metrics['tokens_today'] = sum(session.total_tokens or 0 for session in today_sessions)
+        metrics['cost_today'] = sum(session.estimated_cost or 0.0 for session in today_sessions)
+        
+        return metrics
+        
+    except Exception as e:
+        metrics['error'] = str(e)
+        return metrics
+    finally:
+        if db:
+            db.close()
+
+# For larger datasets, use SQL aggregation:
+def fetch_metrics_with_sql_aggregation(db: Session) -> Dict[str, Any]:
+    """Use SQL SUM for better performance with large datasets"""
+    from sqlalchemy import func
+    
+    today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    result = db.query(
+        func.sum(SessionDB.total_tokens).label('total_tokens'),
+        func.sum(SessionDB.estimated_cost).label('total_cost'),
+        func.count(SessionDB.id).label('session_count')
+    ).filter(
+        SessionDB.started_at >= today_start
+    ).first()
+    
+    return {
+        'tokens_today': result.total_tokens or 0,
+        'cost_today': result.total_cost or 0.0,
+        'sessions_today': result.session_count or 0
+    }
+```
+
+**Key Features**:
+- Proper error handling with error field in response
+- Date-based filtering for "today" metrics
+- Efficient counting using service methods
+- Database connection management with try/finally
+- Support for both Python and SQL aggregation
+- Returns consistent structure even on errors
+
+**Use Cases**:
+- Admin dashboards
+- System monitoring
+- Usage analytics
+- Cost tracking
+- Performance monitoring
 
 ### Bulk Statistics Pattern
 For multiple items, use GROUP BY to get all stats in one query:

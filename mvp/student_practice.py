@@ -17,7 +17,10 @@ from mvp.utils import (
     setup_page_config,
     show_error_message,
     show_success_message,
-    show_info_message
+    show_info_message,
+    render_chat_message,
+    format_tokens,
+    format_cost
 )
 from backend.services.client_service import client_service
 from backend.services.session_service import session_service
@@ -108,6 +111,174 @@ def display_client_card(client: ClientProfile, active_session: Optional[Session]
         st.markdown('</div>', unsafe_allow_html=True)
 
 
+def display_conversation_interface():
+    """Display the conversation interface for students"""
+    # Get student auth
+    student = get_mock_student()
+    
+    # Initialize conversation-specific session state
+    if 'conversation_messages' not in st.session_state:
+        st.session_state.conversation_messages = []
+    if 'conversation_cost' not in st.session_state:
+        st.session_state.conversation_cost = 0.0
+    if 'conversation_tokens' not in st.session_state:
+        st.session_state.conversation_tokens = 0
+    if 'conversation_start_time' not in st.session_state:
+        st.session_state.conversation_start_time = datetime.now()
+    
+    # Get client information
+    db = None
+    try:
+        db = get_database_connection()
+        client = client_service.get(db, st.session_state.selected_client_id)
+        if not client:
+            show_error_message("Client not found")
+            st.button("← Back to Client Selection", on_click=lambda: setattr(st.session_state, 'view', 'client_selection'))
+            return
+        
+        # Header with client info
+        st.header(f"💬 Conversation with {client.name}")
+        
+        # Get session info and messages if not already loaded
+        if not st.session_state.conversation_messages and st.session_state.active_session_id:
+            session = session_service.get_session(db, st.session_state.active_session_id)
+            if session:
+                st.session_state.conversation_cost = session.estimated_cost or 0.0
+                st.session_state.conversation_tokens = session.total_tokens or 0
+                st.session_state.conversation_start_time = session.started_at
+                
+                # Load existing messages
+                messages = session_service.get_messages(db, st.session_state.active_session_id)
+                for msg in messages:
+                    st.session_state.conversation_messages.append({
+                        'role': msg.role,
+                        'content': msg.content,
+                        'tokens': msg.token_count
+                    })
+        
+        # Conversation controls and metrics
+        col1, col2, col3, col4 = st.columns([2, 2, 2, 1])
+        
+        with col1:
+            if st.button("🛑 End Session", type="secondary", use_container_width=True):
+                try:
+                    # End the conversation
+                    ended_session = conversation_service.end_conversation(
+                        db=db,
+                        session_id=st.session_state.active_session_id,
+                        user=student,
+                        session_notes="Student practice session"
+                    )
+                    
+                    # Clear session state
+                    st.session_state.active_session_id = None
+                    st.session_state.conversation_messages = []
+                    st.session_state.view = "client_selection"
+                    
+                    show_success_message(f"Session ended. Total cost: {format_cost(ended_session.estimated_cost or 0)}")
+                    st.rerun()
+                    
+                except Exception as e:
+                    show_error_message(f"Failed to end session: {str(e)}")
+        
+        with col2:
+            # Calculate session duration
+            duration = datetime.now() - st.session_state.conversation_start_time
+            duration_minutes = int(duration.total_seconds() // 60)
+            st.metric("Session Duration", f"{duration_minutes} min")
+        
+        with col3:
+            st.metric("Total Tokens", format_tokens(st.session_state.conversation_tokens))
+        
+        with col4:
+            st.metric("Cost", format_cost(st.session_state.conversation_cost))
+        
+        st.divider()
+        
+        # Display conversation history
+        st.subheader("Conversation")
+        
+        # Create a container for messages
+        message_container = st.container()
+        
+        with message_container:
+            for msg in st.session_state.conversation_messages:
+                render_chat_message(
+                    role=msg['role'],
+                    content=msg['content'],
+                    tokens=msg.get('tokens')
+                )
+        
+        # Message input form
+        with st.form("message_form", clear_on_submit=True):
+            user_input = st.text_area(
+                "Your message:",
+                placeholder="Type your message here...",
+                height=100,
+                key="student_message_input"
+            )
+            
+            col1, col2 = st.columns([6, 1])
+            with col2:
+                send_button = st.form_submit_button("Send", type="primary", use_container_width=True)
+            
+            if send_button and user_input:
+                try:
+                    # Add user message to UI immediately
+                    st.session_state.conversation_messages.append({
+                        'role': 'user',
+                        'content': user_input,
+                        'tokens': None
+                    })
+                    
+                    # Get AI response
+                    with st.spinner(f"{client.name} is typing..."):
+                        ai_message = conversation_service.send_message(
+                            db=db,
+                            session_id=st.session_state.active_session_id,
+                            content=user_input,
+                            user=student
+                        )
+                    
+                    # Add AI response to conversation
+                    st.session_state.conversation_messages.append({
+                        'role': ai_message.role,
+                        'content': ai_message.content,
+                        'tokens': ai_message.token_count
+                    })
+                    
+                    # Update metrics
+                    session = session_service.get_session(db, st.session_state.active_session_id)
+                    st.session_state.conversation_cost = session.estimated_cost or 0.0
+                    st.session_state.conversation_tokens = session.total_tokens or 0
+                    
+                    st.rerun()
+                    
+                except Exception as e:
+                    error_msg = str(e)
+                    if "ANTHROPIC_API_KEY" in error_msg:
+                        show_error_message(
+                            "Anthropic API key not configured. Please contact your instructor."
+                        )
+                    else:
+                        show_error_message(f"Failed to send message: {error_msg}")
+        
+        # Back button at the bottom
+        st.markdown("---")
+        if st.button("← Back to Client Selection"):
+            st.session_state.view = "client_selection"
+            st.rerun()
+            
+    except Exception as e:
+        show_error_message(f"Error in conversation interface: {str(e)}")
+        if st.button("← Back to Client Selection"):
+            st.session_state.view = "client_selection"
+            st.rerun()
+    finally:
+        if db:
+            db.close()
+
+
 def main():
     # Page setup
     setup_page_config("Student Practice", "🎭")
@@ -126,11 +297,7 @@ def main():
     
     # Navigation based on view
     if st.session_state.view == "conversation":
-        # This will be implemented in Part 6
-        st.info("Conversation interface will be implemented in Part 6")
-        if st.button("← Back to Client Selection"):
-            st.session_state.view = "client_selection"
-            st.rerun()
+        display_conversation_interface()
         return
     
     # Client Selection View

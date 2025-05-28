@@ -32,7 +32,9 @@ from mvp.utils import (
     get_mock_student,
     render_chat_message,
     format_tokens,
-    format_cost
+    format_cost,
+    handle_api_error,
+    display_configuration_warnings
 )
 
 from backend.models.client_profile import (
@@ -48,6 +50,42 @@ from backend.services.session_service import session_service
 from backend.models.auth import StudentAuth
 from backend.models.session import SessionDB
 from backend.models.message import MessageDB
+from backend.services.prompt_service import prompt_service
+
+
+# Available models and their pricing (input/output per 1M tokens)
+AVAILABLE_MODELS = {
+    "claude-3-haiku-20240307": {
+        "name": "Claude 3 Haiku",
+        "description": "Fast and efficient for testing",
+        "input_cost": 0.25,
+        "output_cost": 1.25,
+        "recommended_for": "Development & Testing"
+    },
+    "claude-3-5-sonnet-20241022": {
+        "name": "Claude 3.5 Sonnet", 
+        "description": "Balanced performance and cost",
+        "input_cost": 3.00,
+        "output_cost": 15.00,
+        "recommended_for": "General Use"
+    },
+    "claude-3-sonnet-20240229": {
+        "name": "Claude 3 Sonnet",
+        "description": "Higher quality responses", 
+        "input_cost": 3.00,
+        "output_cost": 15.00,
+        "recommended_for": "Production"
+    },
+    "claude-3-opus-20240229": {
+        "name": "Claude 3 Opus",
+        "description": "Highest quality, most expensive",
+        "input_cost": 15.00,
+        "output_cost": 75.00,
+        "recommended_for": "Premium Use"
+    }
+}
+
+DEFAULT_MODEL = "claude-3-haiku-20240307"
 
 
 def create_client_form():
@@ -295,6 +333,134 @@ def format_conversation_export(conversation: Dict[str, Any]) -> str:
     return "\n".join(export_lines)
 
 
+def show_conversation_setup():
+    """
+    Show conversation setup interface with prompt preview/editing and model selection.
+    
+    Returns:
+        Tuple of (ready_to_start: bool, system_prompt: str, selected_model: str)
+    """
+    st.subheader(f"🔧 Conversation Setup for {st.session_state.selected_client_name}")
+    
+    # Get the client for prompt generation
+    try:
+        db = get_database_connection()
+        client = client_service.get(db, st.session_state.selected_client_id)
+        if not client:
+            show_error_message("Client not found")
+            return False, "", DEFAULT_MODEL
+    except Exception as e:
+        show_error_message(f"Error loading client: {str(e)}")
+        return False, "", DEFAULT_MODEL
+    finally:
+        db.close()
+    
+    # Generate default system prompt
+    default_prompt = prompt_service.generate_system_prompt(client)
+    
+    # Initialize session state for conversation setup
+    if 'setup_system_prompt' not in st.session_state:
+        st.session_state.setup_system_prompt = default_prompt
+    if 'setup_selected_model' not in st.session_state:
+        st.session_state.setup_selected_model = DEFAULT_MODEL
+    
+    # Model selection
+    st.write("### 🤖 Model Selection")
+    
+    # Create model options
+    model_options = []
+    model_labels = []
+    for model_id, model_info in AVAILABLE_MODELS.items():
+        model_options.append(model_id)
+        cost_range = f"${model_info['input_cost']:.2f}-${model_info['output_cost']:.2f}/1M tokens"
+        model_labels.append(f"{model_info['name']} - {model_info['description']} ({cost_range})")
+    
+    # Model selectbox
+    current_model_index = 0
+    if st.session_state.setup_selected_model in model_options:
+        current_model_index = model_options.index(st.session_state.setup_selected_model)
+    
+    selected_model_index = st.selectbox(
+        "Choose AI Model:",
+        range(len(model_options)),
+        index=current_model_index,
+        format_func=lambda i: model_labels[i],
+        help="Different models have different capabilities and costs"
+    )
+    
+    selected_model = model_options[selected_model_index]
+    st.session_state.setup_selected_model = selected_model
+    
+    # Show model details
+    model_info = AVAILABLE_MODELS[selected_model]
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Input Cost", f"${model_info['input_cost']:.2f}/1M tokens")
+    with col2:
+        st.metric("Output Cost", f"${model_info['output_cost']:.2f}/1M tokens")
+    with col3:
+        st.info(f"**Best for:** {model_info['recommended_for']}")
+    
+    st.divider()
+    
+    # System prompt preview and editing
+    st.write("### 📝 System Prompt")
+    
+    # Tabs for default vs custom prompt
+    prompt_tab1, prompt_tab2 = st.tabs(["Default Prompt", "Edit Prompt"])
+    
+    with prompt_tab1:
+        st.write("**Generated system prompt based on client profile:**")
+        st.code(default_prompt, language="text")
+        
+        if st.button("Use Default Prompt", key="use_default"):
+            st.session_state.setup_system_prompt = default_prompt
+            show_success_message("Using default system prompt")
+    
+    with prompt_tab2:
+        st.write("**Edit the system prompt to customize the AI's behavior:**")
+        
+        edited_prompt = st.text_area(
+            "System Prompt:",
+            value=st.session_state.setup_system_prompt,
+            height=300,
+            help="This prompt defines how the AI will behave as the virtual client"
+        )
+        
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            if st.button("Save Changes", key="save_prompt"):
+                st.session_state.setup_system_prompt = edited_prompt
+                show_success_message("System prompt updated")
+        
+        with col2:
+            if st.button("Reset to Default", key="reset_prompt"):
+                st.session_state.setup_system_prompt = default_prompt
+                show_success_message("Reset to default prompt")
+    
+    st.divider()
+    
+    # Cost estimation
+    st.write("### 💰 Cost Estimation")
+    estimated_tokens = len(st.session_state.setup_system_prompt) // 4 + 100  # Rough estimate
+    model_info = AVAILABLE_MODELS[selected_model]
+    estimated_cost = (estimated_tokens / 1_000_000) * ((model_info['input_cost'] + model_info['output_cost']) / 2)
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Estimated Tokens", format_tokens(estimated_tokens))
+    with col2:
+        st.metric("Estimated Cost per Exchange", format_cost(estimated_cost))
+    
+    # Ready to start button
+    st.write("### 🚀 Ready to Start")
+    
+    if st.button("Start Conversation with These Settings", type="primary", use_container_width=True):
+        return True, st.session_state.setup_system_prompt, st.session_state.setup_selected_model
+    
+    return False, st.session_state.setup_system_prompt, st.session_state.setup_selected_model
+
+
 def display_conversation_history(teacher_id: str):
     """
     Display conversation history and metrics for a teacher.
@@ -524,6 +690,9 @@ def main():
     
     st.title("👩‍🏫 Teacher Test Interface")
     
+    # Display configuration warnings
+    display_configuration_warnings()
+    
     # Add tabs for different functions
     tab1, tab2, tab3 = st.tabs(["Create Client", "Test Conversations", "View History"])
     
@@ -554,8 +723,33 @@ def main():
         if not hasattr(st.session_state, 'selected_client_id'):
             show_info_message("Please select a client from the 'Create Client' tab first.")
         else:
-            # Display selected client info
+            # Initialize conversation setup state
+            if 'conversation_setup_complete' not in st.session_state:
+                st.session_state.conversation_setup_complete = False
+            
+            # Show setup interface if setup is not complete AND no active conversation
+            if not st.session_state.conversation_setup_complete and not st.session_state.get('conversation_active', False):
+                ready_to_start, system_prompt, selected_model = show_conversation_setup()
+                
+                if ready_to_start:
+                    st.session_state.conversation_setup_complete = True
+                    st.session_state.setup_system_prompt = system_prompt
+                    st.session_state.setup_selected_model = selected_model
+                    st.rerun()
+                
+                return  # Don't show conversation interface until setup is complete
+            
+            # Display conversation interface
             st.subheader(f"💬 Test Conversation with {st.session_state.selected_client_name}")
+            
+            # Show selected settings
+            with st.expander("🔧 Current Settings", expanded=False):
+                model_info = AVAILABLE_MODELS.get(st.session_state.setup_selected_model, {})
+                st.write(f"**Model:** {model_info.get('name', st.session_state.setup_selected_model)}")
+                st.write(f"**Prompt Preview:** {st.session_state.setup_system_prompt[:100]}...")
+                if st.button("Change Settings", key="change_settings"):
+                    st.session_state.conversation_setup_complete = False
+                    st.rerun()
             
             # Initialize conversation-specific session state
             if 'conversation_active' not in st.session_state:
@@ -579,12 +773,14 @@ def main():
                             # Use mock student for teacher testing
                             mock_student = get_mock_student()
                             
-                            # Start the conversation
+                            # Start the conversation with custom settings
                             db = get_database_connection()
                             session = conversation_service.start_conversation(
                                 db=db,
                                 student=mock_student,
-                                client_id=st.session_state.selected_client_id
+                                client_id=st.session_state.selected_client_id,
+                                custom_system_prompt=st.session_state.setup_system_prompt,
+                                model=st.session_state.setup_selected_model
                             )
                             
                             # Update session state
@@ -613,14 +809,9 @@ def main():
                             st.rerun()
                             
                         except Exception as e:
-                            error_msg = str(e)
-                            if "ANTHROPIC_API_KEY" in error_msg:
-                                show_error_message(
-                                    "Anthropic API key not configured. Please set the ANTHROPIC_API_KEY "
-                                    "environment variable to enable conversations."
-                                )
-                            else:
-                                show_error_message(f"Failed to start conversation: {error_msg}")
+                            show_error_message(f"Failed to start conversation: {handle_api_error(e)}")
+                            # Store error for debugging
+                            st.session_state.last_error = str(e)
                         finally:
                             db.close()
                 else:
@@ -640,6 +831,7 @@ def main():
                             # Reset session state
                             st.session_state.conversation_active = False
                             st.session_state.current_session_id = None
+                            st.session_state.conversation_setup_complete = False  # Allow settings change for next conversation
                             
                             show_success_message(f"Conversation ended. Total cost: {format_cost(ended_session.estimated_cost or 0)}")
                             st.rerun()
@@ -656,10 +848,21 @@ def main():
                     st.write("**Status:** No active conversation")
             
             with col3:
-                # Display metrics
+                # Display metrics with better formatting
                 if st.session_state.conversation_active:
-                    st.metric("Total Tokens", format_tokens(st.session_state.conversation_tokens))
-                    st.metric("Est. Cost", format_cost(st.session_state.conversation_cost))
+                    st.metric(
+                        "Total Tokens", 
+                        format_tokens(st.session_state.conversation_tokens),
+                        help="Tokens used in this conversation"
+                    )
+                    st.metric(
+                        "Est. Cost", 
+                        format_cost(st.session_state.conversation_cost),
+                        help="Estimated cost for this conversation"
+                    )
+                else:
+                    st.metric("Status", "Ready")
+                    st.caption("Start a conversation to see metrics")
             
             st.divider()
             
@@ -705,14 +908,22 @@ def main():
                                 'tokens': None  # Will be calculated by service
                             })
                             
-                            # Get AI response
-                            with st.spinner("Client is thinking..."):
+                            # Get AI response with enhanced loading state
+                            with st.spinner(f"💭 {st.session_state.selected_client_name} is thinking..."):
+                                # Set loading state
+                                st.session_state.loading = True
+                                
                                 ai_message = conversation_service.send_message(
                                     db=db,
                                     session_id=st.session_state.current_session_id,
                                     content=user_input,
-                                    user=mock_student
+                                    user=mock_student,
+                                    model=st.session_state.setup_selected_model,
+                                    system_prompt=st.session_state.setup_system_prompt
                                 )
+                                
+                                # Clear loading state
+                                st.session_state.loading = False
                             
                             # Add AI response to conversation
                             st.session_state.conversation_messages.append({
@@ -733,13 +944,9 @@ def main():
                             st.rerun()
                             
                         except Exception as e:
-                            error_msg = str(e)
-                            if "ANTHROPIC_API_KEY" in error_msg:
-                                show_error_message(
-                                    "Anthropic API key not configured. Cannot send messages without API access."
-                                )
-                            else:
-                                show_error_message(f"Failed to send message: {error_msg}")
+                            show_error_message(f"Failed to send message: {handle_api_error(e)}")
+                            # Store error for debugging
+                            st.session_state.last_error = str(e)
                         finally:
                             db.close()
             

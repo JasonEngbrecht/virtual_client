@@ -1,63 +1,92 @@
 # Current Sprint: MVP - Minimum Viable Conversation
 
 ## 📍 Session Handoff
-**Last Updated**: 2025-01-28 8:15 PM CST
-**Last Completed**: Part 8 - Admin Dashboard - Enhanced Monitoring ✅
-**Ready to Start**: Part 9 - Polish & Integration Testing
-**Tests Passing**: All tests passing ✅ (1 new comprehensive integration test)
+**Last Updated**: 2025-05-28 (~1:30 PM CST)
+**Last Completed**: Part 10 - Enhanced Teacher Features ✅
+**Ready to Start**: Railway Deployment (Priority) → Part 11 - Documentation & Handoff
+**Tests Passing**: All tests passing ✅ (1 comprehensive integration test created for Part 10)
 **Notes for Next Session**: 
-- Part 8 complete - enhanced admin dashboard with auto-refresh, usage graphs, service health monitoring, and error logs
-- Successfully implemented all 4 enhancement features: auto-refresh (30s), usage timeline graphs, service health status, error log viewer
-- Used exact field names from models (started_at, total_tokens, estimated_cost, status)
-- Proper integration with existing services: session_service, anthropic_service
-- Time taken: ~45 minutes (exactly as estimated)
-- Auto-refresh works with session state management
-- Usage graphs show 24-hour token/cost trends with pandas DataFrames
-- Service health shows real-time API and database status
-- Error log viewer displays recent issues with severity levels
 
-**Key Implementation Details from Part 8**:
-- Added `fetch_usage_timeline()` function returning pandas DataFrame with 24 hours of hourly data
-- Added `display_usage_graphs()` with side-by-side token and cost line charts
-- Added `display_service_health()` with API and database health checks
-- Added `display_error_logs()` with categorized error display
-- Added `handle_auto_refresh()` with 30-second timer using session state
-- Enhanced existing admin_monitor.py with 4 new sections and auto-refresh capability
-- Created comprehensive integration test covering all new features
+**🚂 PRIORITY: Railway Deployment Plan Created**
+- **Goal**: Deploy MVP to Railway for external testing (~$15-20/month)
+- **Strategy**: Single service deployment (all Streamlit apps + FastAPI together)
+- **Deployment Questions Answered**:
+  - Cost approved: ~$15-20/month ✅
+  - Option 1 (single service) selected ✅ 
+  - User will handle Railway account setup ✅
+  - Railway default domain for MVP ✅
+  - Quick deployment prioritized ✅
+- **Git Workflow Confirmed**: Manual deployments, local development continues on dev branch
+- **Implementation Plan**: 45-60 minutes total (30 min prep files + 15-30 min deploy)
 
-**Important Context for Part 9**:
-- Admin dashboard foundation now complete with all planned monitoring features
-- Polish phase should focus on error handling, UI improvements, loading states
-- Integration testing should verify all 3 interfaces work together
-- Consider performance testing with multiple active sessions
-- Ready for end-to-end testing of full teacher → student → admin workflow
+**Railway Deployment Implementation Tasks**:
+1. **Phase 1: Prepare Deployment Files** (~30 min)
+   - Update requirements.txt (add Streamlit + PostgreSQL)
+   - Create Procfile for Railway startup
+   - Create app_launcher.py to run all interfaces
+   - Create railway_init.py for database setup
+   - Create railway.json configuration
+   - Update environment handling for Railway
+2. **Phase 2: Railway Setup & Deploy** (~15-30 min)
+   - Guide through Railway project creation
+   - Configure PostgreSQL addon
+   - Set environment variables
+   - Deploy and test
+3. **Phase 3: Testing & Handoff** (~15 min)
+   - Test all functionality on Railway
+   - Create deployment documentation
+   - Share URLs for external testers
+
+**Part 10 Completion Notes**:
+- System prompt preview/editing and model selection fully implemented
+- Successfully added custom system prompt capability with text area editing interface
+- Implemented model selection dropdown with Claude 3 Haiku, Claude 3.5 Sonnet, Claude 3 Sonnet, and Claude 3 Opus
+- Updated conversation service to accept `custom_system_prompt` and `model` parameters
+- Enhanced UI flow: Select Client → Preview/Edit Prompt → Choose Model → Start Conversation
+- Added real-time cost estimation based on selected model
+- Model selection disabled during active conversations, reset when conversation ends
+- Created comprehensive integration test `test_part10_enhanced_teacher_features.py` with 3 test scenarios
+- Updated pricing structure to include Claude 3 Opus ($15/$75 per 1M tokens)
+- Time taken: ~1.5 hours (as estimated)
+
+**Part 11 Implementation Plan**:
+1. **Create Quick Start Guide** - Simple setup instructions for new users
+2. **Document Known Issues** - List any edge cases or limitations discovered
+3. **Prepare Feedback Form** - Template for collecting user feedback
+4. **Update All Documentation** - Ensure all docs are current and accurate
+5. **Clean Up Project** - Remove temporary files, ensure tests pass
+6. **Estimated Time**: ~30 minutes total
 
 **Documentation Updated This Session**:
-- CURRENT_SPRINT.md - Marked Part 8 complete, updated session handoff
-- mvp/admin_monitor.py - Complete enhanced implementation
-- tests/integration/test_admin_dashboard_integration.py - Added comprehensive Part 8 test
-
-**Test Files Created/Modified**:
-- test_admin_dashboard_integration.py - Added `TestAdminDashboardIntegration` class with 3 tests
-- Total: 1 integration test for admin dashboard functionality
+- CURRENT_SPRINT.md - Marked Part 10 complete, set up Part 11
+- backend/services/conversation_service.py - Added custom_system_prompt and model parameters
+- backend/services/anthropic_service.py - Enhanced model selection and cost tracking
+- backend/utils/token_counter.py - Added Claude 3 Opus pricing structure
+- mvp/teacher_test.py - Added prompt editing interface and model selection
+- tests/integration/test_part10_enhanced_teacher_features.py - Comprehensive integration test
 
 **Tests Created**:
-- `test_fetch_admin_metrics_with_mock_data` - Tests metrics aggregation with sample data
-- `test_fetch_admin_metrics_handles_empty_database` - Tests with no sessions
-- `test_fetch_admin_metrics_handles_database_error` - Tests error handling
+- `test_part10_enhanced_teacher_features.py` - 3 comprehensive integration tests:
+  - `test_custom_system_prompt_and_model_selection_workflow` - Complete prompt editing and model selection workflow
+  - `test_default_vs_custom_prompt_behavior` - Validates custom prompts override default prompts
+  - `test_model_selection_pricing_logic` - Tests all available models work correctly
 
 **Tests to Run for Regression**:
 ```bash
-# Run new admin dashboard test
-python run_tests.py tests/integration/test_admin_dashboard_integration.py -v
+# Run Part 10 integration test
+python run_tests.py tests/integration/test_part10_enhanced_teacher_features.py -v
 
-# Run all MVP integration tests
+# Run all MVP tests
 python run_tests.py tests/integration/test_mvp_setup.py -v
 python run_tests.py tests/integration/test_teacher_interface_integration.py -v
 python run_tests.py tests/integration/test_student_interface_integration.py -v
+python run_tests.py tests/integration/test_admin_dashboard_integration.py -v
+python run_tests.py tests/integration/test_part9_complete_workflow.py -v
 
-# Quick database test
-python test_quick.py
+# Run core service tests
+python run_tests.py tests/unit/test_conversation_service.py -v
+python run_tests.py tests/unit/test_session_service.py -v
+python run_tests.py tests/unit/test_anthropic_service.py -v
 ```
 
 **Agreed Implementation Plan for Day 3**:
@@ -404,15 +433,35 @@ python run_tests.py tests/unit/test_teacher_interface_logic.py
 - Enhanced admin interface with 4 new major sections beyond basic metrics
 - Used pandas DataFrame for structured usage data with proper time bucketing
 
-**Part 9: Polish & Integration Testing** ⏱️ (~1 hour)
-- [ ] Add error handling to all interfaces
-- [ ] Improve UI styling and layout
-- [ ] Add loading states
-- [ ] Test all three interfaces together
-- [ ] **Manual Test**: Full workflow with multiple users
-- [ ] **One E2E Test**: Basic flow from client creation to conversation
+**Part 9: Polish & Integration Testing** ⏱️ (~1 hour actual: ~1 hour) ✅ COMPLETE
+- [x] Add error handling to all interfaces - Enhanced with `handle_api_error()` function 
+- [x] Improve UI styling and layout - Better loading states, configuration warnings
+- [x] Add loading states - Personalized loading messages with client names
+- [x] Test all three interfaces together - Comprehensive integration test created
+- [x] **Manual Test**: Full workflow with multiple users - Validated teacher→student→admin flow
+- [x] **One E2E Test**: Basic flow from client creation to conversation - `test_part9_complete_workflow.py`
 
-**Part 10: Documentation & Handoff** ⏱️ (~30 min)
+**Part 10: Enhanced Teacher Features** ⏱️ (~1.5 hours actual) ✅ COMPLETE
+- [x] Add system prompt preview and editing capability - Full text area editing with default/custom tabs
+- [x] Add model selection dropdown (Claude 3 Opus, Claude 3.5 Sonnet, Claude 3 Sonnet, Claude 3 Haiku) - Complete with pricing display
+- [x] Modify conversation service to accept custom prompts and model selection - Enhanced with new parameters
+- [x] Update UI flow: Select Client → Preview/Edit Prompt → Choose Model → Start Conversation - Fully implemented
+- [x] Update cost estimates based on selected model - Real-time cost estimation added
+- [x] Disable model selection during active conversations - Settings locked during conversation, reset on end
+- [x] **Manual Test**: Test all model options and prompt editing - All models working, prompt editing functional
+- [x] **One Integration Test**: Validate prompt editing and model selection workflow - `test_part10_enhanced_teacher_features.py` created
+
+**Additional work completed**:
+- Added Claude 3 Opus pricing ($15/$75 per 1M tokens) to token counter utility
+- Enhanced conversation service to pass custom prompts through entire message flow
+- Updated anthropic service to handle dynamic model selection with proper cost tracking
+- Created comprehensive setup interface with model comparison and cost estimation
+- Implemented tabs for default vs custom prompt editing
+- Added prompt reset and save functionality
+- Enhanced UI with expandable current settings display
+- All functionality working with 3 comprehensive integration tests
+
+**Part 11: Documentation & Handoff** ⏱️ (~30 min)
 - [ ] Create quick start guide
 - [ ] Document known issues
 - [ ] Prepare feedback form

@@ -1,11 +1,12 @@
 """
-Shared utilities for MVP Streamlit interfaces
+Enhanced utilities for MVP Streamlit interfaces
 
-Provides common functionality for all MVP pages:
-- Database connection
+Provides common functionality for all MVP pages with improved error handling and UI polish:
+- Database connection with error handling
 - Mock authentication
-- Streamlit page configuration
-- Shared UI helpers
+- Streamlit page configuration  
+- Enhanced UI helpers with loading states
+- Error handling utilities
 """
 
 from dotenv import load_dotenv
@@ -125,9 +126,64 @@ def show_warning_message(message: str) -> None:
     Display a warning message to the user.
     
     Args:
-        message: Warning message to display
+        message: Warning message to display  
     """
     st.warning(f"⚠️ {message}")
+
+
+def show_loading_message(message: str = "Loading...") -> None:
+    """
+    Display a loading message to the user.
+    
+    Args:
+        message: Loading message to display
+    """
+    st.info(f"⏳ {message}")
+
+
+def handle_api_error(error: Exception) -> str:
+    """
+    Convert API errors to user-friendly messages.
+    
+    Args:
+        error: The exception that occurred
+        
+    Returns:
+        User-friendly error message
+    """
+    error_msg = str(error)
+    
+    if "ANTHROPIC_API_KEY" in error_msg:
+        return "Anthropic API key not configured. Please check your environment settings."
+    elif "invalid x-api-key" in error_msg or "invalid api key" in error_msg.lower():
+        return "Invalid API key. Please check your ANTHROPIC_API_KEY configuration."
+    elif "rate limit" in error_msg.lower():
+        return "Rate limit exceeded. Please wait a moment and try again."
+    elif "connection" in error_msg.lower() or "timeout" in error_msg.lower():
+        return "Unable to connect to the AI service. Please check your internet connection."
+    elif "not found" in error_msg.lower():
+        return "Requested resource not found. Please try again."
+    else:
+        return f"An unexpected error occurred: {error_msg}"
+
+
+def safe_database_operation(operation_func, error_prefix: str = "Database operation failed"):
+    """
+    Safely execute a database operation with error handling.
+    
+    Args:
+        operation_func: Function to execute that uses database
+        error_prefix: Prefix for error messages
+        
+    Returns:
+        Result of operation or None if failed
+    """
+    try:
+        result = operation_func()
+        return result
+    except Exception as e:
+        show_error_message(f"{error_prefix}: {handle_api_error(e)}")
+        return None
 
 
 def format_cost(cost: float) -> str:
@@ -162,72 +218,6 @@ def format_tokens(tokens: int) -> str:
         return str(tokens)
     else:
         return f"{tokens:,}"
-
-
-def create_sidebar_navigation() -> str:
-    """
-    Create standard sidebar navigation for MVP pages.
-    
-    Returns:
-        Selected page name
-    """
-    with st.sidebar:
-        st.title("Virtual Client MVP")
-        
-        # Navigation
-        page = st.radio(
-            "Navigation",
-            ["Teacher Test", "Student Practice", "Admin Monitor"],
-            label_visibility="collapsed"
-        )
-        
-        st.divider()
-        
-        # Mock user info
-        st.caption("Mock Authentication")
-        if "Teacher" in page:
-            user = get_mock_teacher()
-            st.write(f"👩‍🏫 Teacher ID: {user.teacher_id}")
-        elif "Student" in page:
-            user = get_mock_student()
-            st.write(f"🎓 Student ID: {user.student_id}")
-        else:
-            st.write(f"👤 Admin User")
-        
-        st.divider()
-        
-        # Quick stats placeholder
-        st.caption("Session Info")
-        st.write("Sessions Today: --")
-        st.write("Total Cost: --")
-        
-        return page
-
-
-def handle_api_error(error: Exception) -> str:
-    """
-    Convert API errors to user-friendly messages.
-    
-    Args:
-        error: The exception that occurred
-        
-    Returns:
-        User-friendly error message
-    """
-    error_msg = str(error)
-    
-    if "ANTHROPIC_API_KEY" in error_msg:
-        return "Anthropic API key not configured. Please check your environment settings."
-    elif "invalid x-api-key" in error_msg or "invalid api key" in error_msg.lower():
-        return "Invalid API key. Please check your ANTHROPIC_API_KEY configuration."
-    elif "rate limit" in error_msg.lower():
-        return "Rate limit exceeded. Please wait a moment and try again."
-    elif "connection" in error_msg.lower() or "timeout" in error_msg.lower():
-        return "Unable to connect to the AI service. Please check your internet connection."
-    elif "not found" in error_msg.lower():
-        return "Requested resource not found. Please try again."
-    else:
-        return f"An unexpected error occurred: {error_msg}"
 
 
 def check_database_connection() -> bool:
@@ -293,28 +283,73 @@ def initialize_session_state() -> None:
         st.session_state.messages = []
         st.session_state.total_cost = 0.0
         st.session_state.total_tokens = 0
+        st.session_state.last_error = None
+        st.session_state.loading = False
 
 
-# Reusable UI components
-def render_chat_message(role: str, content: str, tokens: Optional[int] = None) -> None:
+def clear_error_state():
     """
-    Render a chat message in the UI.
+    Clear any error state from session.
+    """
+    if 'last_error' in st.session_state:
+        st.session_state.last_error = None
+
+
+def set_loading_state(loading: bool, message: str = ""):
+    """
+    Set loading state for UI feedback.
+    
+    Args:
+        loading: Whether currently loading
+        message: Optional loading message
+    """
+    st.session_state.loading = loading
+    if loading and message:
+        st.session_state.loading_message = message
+
+
+# Enhanced UI components
+def render_chat_message(role: str, content: str, tokens: Optional[int] = None, timestamp: Optional[str] = None) -> None:
+    """
+    Render a chat message in the UI with enhanced formatting.
     
     Args:
         role: Message role ("user" or "assistant")
         content: Message content
         tokens: Optional token count to display
+        timestamp: Optional timestamp to display
     """
     if role == "user":
         with st.chat_message("user", avatar="🧑"):
             st.write(content)
-            if tokens:
-                st.caption(f"Tokens: {format_tokens(tokens)}")
+            if tokens or timestamp:
+                caption_parts = []
+                if tokens:
+                    caption_parts.append(f"Tokens: {format_tokens(tokens)}")
+                if timestamp:
+                    caption_parts.append(f"Time: {timestamp}")
+                st.caption(" | ".join(caption_parts))
     else:
         with st.chat_message("assistant", avatar="🤖"):
             st.write(content)
-            if tokens:
-                st.caption(f"Tokens: {format_tokens(tokens)}")
+            if tokens or timestamp:
+                caption_parts = []
+                if tokens:
+                    caption_parts.append(f"Tokens: {format_tokens(tokens)}")
+                if timestamp:
+                    caption_parts.append(f"Time: {timestamp}")
+                st.caption(" | ".join(caption_parts))
+
+
+def render_loading_placeholder(message: str = "Loading data..."):
+    """
+    Render a loading placeholder with spinner.
+    
+    Args:
+        message: Loading message to display
+    """
+    with st.spinner(message):
+        st.empty()  # Placeholder that will be replaced
 
 
 def render_metric_card(label: str, value: Any, delta: Optional[Any] = None) -> None:
@@ -327,6 +362,30 @@ def render_metric_card(label: str, value: Any, delta: Optional[Any] = None) -> N
         delta: Optional change indicator
     """
     st.metric(label=label, value=value, delta=delta)
+
+
+def render_status_indicator(status: str, label: str = "") -> None:
+    """
+    Render a status indicator with color coding.
+    
+    Args:
+        status: Status value ('active', 'completed', 'error', etc.)
+        label: Optional label to display
+    """
+    status_config = {
+        'active': ('🟢', 'Active'),
+        'completed': ('✅', 'Completed'),
+        'error': ('🔴', 'Error'),
+        'inactive': ('⚪', 'Inactive'),
+        'loading': ('🟡', 'Loading'),
+        'healthy': ('🟢', 'Healthy'),
+        'degraded': ('🟡', 'Degraded'),
+        'unavailable': ('🔴', 'Unavailable')
+    }
+    
+    emoji, default_label = status_config.get(status.lower(), ('⚪', status.title()))
+    display_label = label or default_label
+    st.write(f"{emoji} {display_label}")
 
 
 # Constants for MVP
@@ -369,8 +428,8 @@ def estimate_conversation_cost(
 
 
 if __name__ == "__main__":
-    # Quick test of utilities
-    print("Testing MVP utilities...")
+    # Quick test of enhanced utilities
+    print("Testing Enhanced MVP utilities...")
     
     # Test database connection
     try:
@@ -390,4 +449,8 @@ if __name__ == "__main__":
     print(f"✅ Cost formatting: {format_cost(0.0045)} (should be $0.0045)")
     print(f"✅ Token formatting: {format_tokens(1234)} (should be 1,234)")
     
-    print("\nAll utilities tested!")
+    # Test configuration check
+    config = check_api_configuration()
+    print(f"✅ Configuration check: {config}")
+    
+    print("\nAll enhanced utilities tested!")

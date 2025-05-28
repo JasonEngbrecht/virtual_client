@@ -32,7 +32,9 @@ from mvp.utils import (
     initialize_session_state,
     get_database_connection,
     format_cost,
-    format_tokens
+    format_tokens,
+    handle_api_error,
+    display_configuration_warnings
 )
 
 from backend.services.session_service import session_service
@@ -103,7 +105,7 @@ def display_admin_metrics():
     metrics = fetch_admin_metrics()
     
     if metrics['error']:
-        show_error_message(f"Error fetching metrics: {metrics['error']}")
+        show_error_message(f"Error fetching metrics: {handle_api_error(Exception(metrics['error']))}") 
         return
     
     # Display key metrics in columns
@@ -487,10 +489,18 @@ def main():
     st.title("📊 Admin Monitoring Dashboard")
     st.markdown("Monitor system usage and active sessions in real-time")
     
-    # Refresh button
+    # Display configuration warnings
+    display_configuration_warnings()
+    
+    # Refresh button with loading state
     col1, col2, col3 = st.columns([1, 1, 4])
     with col1:
         if st.button("🔄 Refresh Data", type="primary"):
+            # Show brief loading message
+            with st.spinner("🔄 Refreshing data..."):
+                # Small delay to show loading state
+                import time
+                time.sleep(0.5)
             st.rerun()
     
     with col2:

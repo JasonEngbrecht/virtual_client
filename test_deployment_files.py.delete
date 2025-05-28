@@ -1,0 +1,114 @@
+#!/usr/bin/env python3
+"""
+Quick test script to validate Railway deployment files
+"""
+import os
+import sys
+import importlib.util
+
+def test_imports():
+    """Test that all modules can be imported"""
+    print("🧪 Testing imports...")
+    
+    try:
+        # Test app_launcher
+        spec = importlib.util.spec_from_file_location("app_launcher", "app_launcher.py")
+        app_launcher = importlib.util.module_from_spec(spec)
+        print("✅ app_launcher.py imports successfully")
+        
+        # Test railway_init
+        spec = importlib.util.spec_from_file_location("railway_init", "railway_init.py")
+        railway_init = importlib.util.module_from_spec(spec)
+        print("✅ railway_init.py imports successfully")
+        
+        # Test railway_env_check
+        spec = importlib.util.spec_from_file_location("railway_env_check", "railway_env_check.py")
+        railway_env_check = importlib.util.module_from_spec(spec)
+        print("✅ railway_env_check.py imports successfully")
+        
+        return True
+        
+    except Exception as e:
+        print(f"❌ Import error: {e}")
+        return False
+
+def test_files_exist():
+    """Test that all deployment files exist"""
+    print("📁 Testing file existence...")
+    
+    required_files = [
+        "requirements.txt",
+        "Procfile", 
+        "app_launcher.py",
+        "railway_init.py",
+        "railway.json",
+        "railway_env_check.py",
+        ".railwayignore",
+        "RAILWAY_DEPLOYMENT.md"
+    ]
+    
+    all_exist = True
+    for file in required_files:
+        if os.path.exists(file):
+            print(f"✅ {file}")
+        else:
+            print(f"❌ {file} - MISSING")
+            all_exist = False
+    
+    return all_exist
+
+def test_requirements():
+    """Test requirements.txt has necessary packages"""
+    print("📦 Testing requirements.txt...")
+    
+    with open("requirements.txt", "r") as f:
+        content = f.read()
+    
+    required_packages = [
+        "streamlit",
+        "pandas", 
+        "psycopg2-binary",
+        "anthropic",
+        "fastapi",
+        "sqlalchemy"
+    ]
+    
+    all_present = True
+    for package in required_packages:
+        if package in content:
+            print(f"✅ {package}")
+        else:
+            print(f"❌ {package} - MISSING")
+            all_present = False
+    
+    return all_present
+
+def main():
+    """Run all tests"""
+    print("🚂 Railway Deployment Files Test")
+    print("=" * 40)
+    
+    files_ok = test_files_exist()
+    print()
+    
+    imports_ok = test_imports() 
+    print()
+    
+    requirements_ok = test_requirements()
+    print()
+    
+    if files_ok and imports_ok and requirements_ok:
+        print("🎉 All deployment files are ready!")
+        print("📋 Next steps:")
+        print("  1. Create Railway project")
+        print("  2. Add PostgreSQL addon")
+        print("  3. Set environment variables")
+        print("  4. Deploy!")
+        return True
+    else:
+        print("❌ Some issues found. Please fix before deploying.")
+        return False
+
+if __name__ == "__main__":
+    success = main()
+    sys.exit(0 if success else 1)

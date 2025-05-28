@@ -19,6 +19,11 @@ PRICING: Dict[str, Dict[str, float]] = {
         "input": 3.00,    # $3.00 per 1M input tokens
         "output": 15.00,  # $15.00 per 1M output tokens
         "average": 9.00   # $9.00 per 1M tokens (average)
+    },
+    "opus": {
+        "input": 15.00,   # $15.00 per 1M input tokens
+        "output": 75.00,  # $75.00 per 1M output tokens
+        "average": 45.00  # $45.00 per 1M tokens (average)
     }
 }
 
@@ -61,7 +66,7 @@ def calculate_cost(
     
     Args:
         tokens: Number of tokens
-        model: Model name ("haiku" or "sonnet")
+        model: Model name ("haiku", "sonnet", or "opus")
         token_type: Type of tokens ("input", "output", or "average")
         
     Returns:

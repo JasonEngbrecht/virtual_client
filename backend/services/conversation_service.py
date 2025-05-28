@@ -47,7 +47,9 @@ class ConversationService:
         db: DBSession,
         student: StudentAuth,
         client_id: str,
-        assignment_id: Optional[str] = None
+        assignment_id: Optional[str] = None,
+        custom_system_prompt: Optional[str] = None,
+        model: Optional[str] = None
     ) -> Session:
         """
         Start a new conversation session.
@@ -60,6 +62,8 @@ class ConversationService:
             student: Authenticated student starting the conversation
             client_id: ID of the virtual client to converse with
             assignment_id: Optional assignment ID if this is for an assignment
+            custom_system_prompt: Optional custom system prompt to override default
+            model: Optional model name to use for this conversation
             
         Returns:
             Session: The newly created session with initial AI greeting
@@ -88,7 +92,10 @@ class ConversationService:
         )
         
         # Step 4: Generate system prompt for the AI
-        system_prompt = prompt_service.generate_system_prompt(client)
+        if custom_system_prompt:
+            system_prompt = custom_system_prompt
+        else:
+            system_prompt = prompt_service.generate_system_prompt(client)
         
         # Step 5: Generate initial greeting from the AI
         greeting_prompt = (
@@ -108,7 +115,8 @@ class ConversationService:
                 system_prompt=system_prompt,
                 max_tokens=150,  # Keep greetings concise
                 temperature=0.7,
-                session_id=session_db.id  # Pass session ID for cost tracking
+                session_id=session_db.id,  # Pass session ID for cost tracking
+                model=model  # Pass custom model if specified
             )
             
             # Count tokens for the greeting
@@ -143,7 +151,9 @@ class ConversationService:
         db: DBSession,
         session_id: str,
         content: str,
-        user: StudentAuth
+        user: StudentAuth,
+        model: Optional[str] = None,
+        system_prompt: Optional[str] = None
     ) -> Message:
         """
         Send a message in a conversation and get AI response.
@@ -160,6 +170,8 @@ class ConversationService:
             session_id: ID of the conversation session
             content: Message content from the user
             user: Authenticated user sending the message
+            model: Optional model name to use for this response
+            system_prompt: Optional custom system prompt to use
             
         Returns:
             Message: The AI's response message
@@ -208,7 +220,9 @@ class ConversationService:
                 db=db,
                 session=session_db,
                 user_message=content,
-                conversation_history=messages[:-1]  # Exclude the message we just added
+                conversation_history=messages[:-1],  # Exclude the message we just added
+                model=model,
+                system_prompt=system_prompt
             )
         except Exception as e:
             raise RuntimeError(f"Failed to generate AI response: {str(e)}")
@@ -234,7 +248,9 @@ class ConversationService:
         db: DBSession,
         session: SessionDB,
         user_message: str,
-        conversation_history: list[MessageDB]
+        conversation_history: list[MessageDB],
+        model: Optional[str] = None,
+        system_prompt: Optional[str] = None
     ) -> tuple[str, int]:
         """
         Generate an AI response for the conversation.
@@ -251,6 +267,8 @@ class ConversationService:
             session: The current session
             user_message: The latest message from the user
             conversation_history: Previous messages in the conversation
+            model: Optional model name to use for this response
+            system_prompt: Optional custom system prompt to use
             
         Returns:
             tuple: (response_content, token_count)
@@ -263,8 +281,11 @@ class ConversationService:
         if not client:
             raise RuntimeError(f"Client profile {session.client_profile_id} not found")
         
-        # Step 2: Generate system prompt
-        system_prompt = prompt_service.generate_system_prompt(client)
+        # Step 2: Use provided system prompt or generate from client profile
+        if system_prompt:
+            final_system_prompt = system_prompt
+        else:
+            final_system_prompt = prompt_service.generate_system_prompt(client)
         
         # Step 3: Format conversation history for API
         formatted_messages = self._format_conversation_for_ai(
@@ -278,10 +299,11 @@ class ConversationService:
             
             response_content = anthropic.generate_response(
                 messages=formatted_messages,
-                system_prompt=system_prompt,
+                system_prompt=final_system_prompt,
                 max_tokens=500,  # Reasonable limit for conversational responses
                 temperature=0.7,  # Balanced between creativity and consistency
-                session_id=session.id  # Pass session ID for cost tracking
+                session_id=session.id,  # Pass session ID for cost tracking
+                model=model  # Pass custom model if specified
             )
             
             # Step 5: Count tokens and return

@@ -235,7 +235,7 @@ class AnthropicService:
             else:
                 self.status = ServiceStatus.DEGRADED
     
-    def _track_cost(self, session_id: Optional[str], tokens: int, is_input: bool = True):
+    def _track_cost(self, session_id: Optional[str], tokens: int, is_input: bool = True, model_name: Optional[str] = None):
         """Track API usage costs"""
         # Reset daily cost if needed
         current_date = datetime.utcnow().date()
@@ -244,9 +244,18 @@ class AnthropicService:
             self.cost_reset_date = current_date
             self.session_costs.clear()
         
-        # Calculate cost
+        # Calculate cost using the specified model or default
         from ..utils.token_counter import calculate_cost
-        model_type = "haiku" if "haiku" in self.model.lower() else "sonnet"
+        current_model = model_name if model_name else self.model
+        
+        # Determine model type from model name
+        if "haiku" in current_model.lower():
+            model_type = "haiku"
+        elif "opus" in current_model.lower():
+            model_type = "opus"
+        else:
+            model_type = "sonnet"  # Default for all other Sonnet variants
+        
         token_type = "input" if is_input else "output"
         cost = calculate_cost(tokens, model_type, token_type)
         
@@ -436,7 +445,8 @@ class AnthropicService:
         system_prompt: Optional[str] = None,
         max_tokens: int = 500,
         temperature: float = 0.7,
-        session_id: Optional[str] = None
+        session_id: Optional[str] = None,
+        model: Optional[str] = None
     ) -> str:
         """
         Generate a synchronous response from Claude with retry logic.
@@ -447,6 +457,7 @@ class AnthropicService:
             max_tokens: Maximum tokens in response (default: 500)
             temperature: Response randomness 0-1 (default: 0.7)
             session_id: Optional session ID for cost tracking
+            model: Optional model name to override default
             
         Returns:
             Generated response text
@@ -470,14 +481,17 @@ class AnthropicService:
             )
         
         try:
+            # Use provided model or fall back to default
+            selected_model = model if model else self.model
+            
             # Track input tokens for cost
             input_tokens = sum(self.count_tokens(msg['content']) for msg in messages)
             if system_prompt:
                 input_tokens += self.count_tokens(system_prompt)
-            self._track_cost(session_id, input_tokens, is_input=True)
+            self._track_cost(session_id, input_tokens, is_input=True, model_name=selected_model)
             
             kwargs = {
-                "model": self.model,
+                "model": selected_model,
                 "messages": messages,
                 "max_tokens": max_tokens,
                 "temperature": temperature
@@ -495,9 +509,9 @@ class AnthropicService:
             # Extract text from response
             response_text = response.content[0].text
             
-            # Track output tokens
+            # Track output tokens with selected model
             output_tokens = self.count_tokens(response_text)
-            self._track_cost(session_id, output_tokens, is_input=False)
+            self._track_cost(session_id, output_tokens, is_input=False, model_name=selected_model)
             
             # Record success
             self.circuit_breaker.record_success()
@@ -554,7 +568,8 @@ class AnthropicService:
         system_prompt: Optional[str] = None,
         max_tokens: int = 500,
         temperature: float = 0.7,
-        session_id: Optional[str] = None
+        session_id: Optional[str] = None,
+        model: Optional[str] = None
     ) -> str:
         """
         Generate an asynchronous response from Claude with retry logic.
@@ -565,6 +580,7 @@ class AnthropicService:
             max_tokens: Maximum tokens in response (default: 500)
             temperature: Response randomness 0-1 (default: 0.7)
             session_id: Optional session ID for cost tracking
+            model: Optional model name to override default
             
         Returns:
             Generated response text
@@ -588,14 +604,17 @@ class AnthropicService:
             )
         
         try:
+            # Use provided model or fall back to default
+            selected_model = model if model else self.model
+            
             # Track input tokens for cost
             input_tokens = sum(self.count_tokens(msg['content']) for msg in messages)
             if system_prompt:
                 input_tokens += self.count_tokens(system_prompt)
-            self._track_cost(session_id, input_tokens, is_input=True)
+            self._track_cost(session_id, input_tokens, is_input=True, model_name=selected_model)
             
             kwargs = {
-                "model": self.model,
+                "model": selected_model,
                 "messages": messages,
                 "max_tokens": max_tokens,
                 "temperature": temperature
@@ -613,9 +632,9 @@ class AnthropicService:
             # Extract text from response
             response_text = response.content[0].text
             
-            # Track output tokens
+            # Track output tokens with selected model
             output_tokens = self.count_tokens(response_text)
-            self._track_cost(session_id, output_tokens, is_input=False)
+            self._track_cost(session_id, output_tokens, is_input=False, model_name=selected_model)
             
             # Record success
             self.circuit_breaker.record_success()

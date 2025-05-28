@@ -20,7 +20,9 @@ from mvp.utils import (
     show_info_message,
     render_chat_message,
     format_tokens,
-    format_cost
+    format_cost,
+    handle_api_error,
+    display_configuration_warnings
 )
 from backend.services.client_service import client_service
 from backend.services.session_service import session_service
@@ -103,7 +105,8 @@ def display_client_card(client: ClientProfile, active_session: Optional[Session]
                     st.rerun()
                     
                 except Exception as e:
-                    show_error_message(f"Error starting conversation: {str(e)}")
+                    show_error_message(f"Error starting conversation: {handle_api_error(e)}")
+                    st.session_state.last_error = str(e)
                 finally:
                     if db:
                         db.close()
@@ -231,14 +234,20 @@ def display_conversation_interface():
                         'tokens': None
                     })
                     
-                    # Get AI response
-                    with st.spinner(f"{client.name} is typing..."):
+                    # Get AI response with enhanced loading
+                    with st.spinner(f"💬 {client.name} is typing..."):
+                        # Set loading state for UI feedback
+                        st.session_state.loading = True
+                        
                         ai_message = conversation_service.send_message(
                             db=db,
                             session_id=st.session_state.active_session_id,
                             content=user_input,
                             user=student
                         )
+                        
+                        # Clear loading state
+                        st.session_state.loading = False
                     
                     # Add AI response to conversation
                     st.session_state.conversation_messages.append({
@@ -255,13 +264,8 @@ def display_conversation_interface():
                     st.rerun()
                     
                 except Exception as e:
-                    error_msg = str(e)
-                    if "ANTHROPIC_API_KEY" in error_msg:
-                        show_error_message(
-                            "Anthropic API key not configured. Please contact your instructor."
-                        )
-                    else:
-                        show_error_message(f"Failed to send message: {error_msg}")
+                    show_error_message(f"Failed to send message: {handle_api_error(e)}")
+                    st.session_state.last_error = str(e)
         
         # Back button at the bottom
         st.markdown("---")
@@ -289,6 +293,10 @@ def main():
     # Header
     st.title("🎭 Practice Conversations")
     st.markdown(f"**Student ID:** {student.student_id}")
+    
+    # Display configuration warnings
+    display_configuration_warnings()
+    
     st.markdown("---")
     
     # Initialize session state

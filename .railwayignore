@@ -1,0 +1,66 @@
+# Railway Deployment - Ignore unnecessary files
+
+# Development files
+.env
+.env.local
+.env.development
+.env.production
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Database files (use Railway PostgreSQL instead)
+database/
+*.db
+*.sqlite
+*.sqlite3
+
+# Documentation (not needed for runtime)
+docs/
+*.md
+!README.md
+
+# Test files
+tests/
+test_*.py
+*_test.py
+
+# Development scripts
+recreate_db.py
+setup_instructions.py
+temp_*.py
+check_*.py
+quick_setup.bat
+run_tests.py
+test_quick.py
+
+# Git files
+.git/
+.gitignore
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Local development files
+frontend/
+start_server.py
+
+# Temporary files
+*.tmp
+*.log
